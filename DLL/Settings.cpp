@@ -362,6 +362,9 @@ void Settings::Initialize()
 		{"AudioBridgeLimiterLevel", -60},
 		{"AudioBridgeLoudnessMatch", 0},
 		{"AudioBridgeLoudnessTarget", -200},
+		{"SongVolumeNormalize", 0},
+		{"SongVolumeTarget", -200},
+		{"SongVolumeBoost", 0},
 		{"CustomStringColors", 0},
 		{"AlternativeOutputSampleRate", 48000},
 		{"LoopingLeadUp", 0},
@@ -504,7 +507,10 @@ void Settings::ReadModSettings() {
 		{"RocksmithGateThreshold", reader.GetLongValue("Mod Settings", "RocksmithGateThreshold", -593)}, // forced P1_NoiseFloor in tenths of a dB while the override is on (-593 = game default; lower opens the gate for longer sustain)
 		{"AudioBridgeLimiter", reader.GetLongValue("Mod Settings", "AudioBridgeLimiter", 0)}, // output limiter / safety ceiling (0 = off, 1 = on)
 		{"AudioBridgeLimiterLevel", reader.GetLongValue("Mod Settings", "AudioBridgeLimiterLevel", -60)}, // limiter ceiling in tenths of a dBFS (-60 = -6.0 dBFS); nothing leaves above this
-		{"AudioBridgeLoudnessMatch", reader.GetLongValue("Mod Settings", "AudioBridgeLoudnessMatch", 0)}, // loudness equalisation / AGC (0 = off, 1 = on)
+		{"SongVolumeNormalize", reader.GetLongValue("Mod Settings", "SongVolumeNormalize", 0)},
+		{"SongVolumeTarget", reader.GetLongValue("Mod Settings", "SongVolumeTarget", -200)},
+		{"SongVolumeBoost", reader.GetLongValue("Mod Settings", "SongVolumeBoost", 0)},
+		{"AudioBridgeLoudnessMatch", reader.GetLongValue("Mod Settings", "AudioBridgeLoudnessMatch", 0)}, // legacy whole-mix AGC (retired)
 		{"AudioBridgeLoudnessTarget", reader.GetLongValue("Mod Settings", "AudioBridgeLoudnessTarget", -200)}, // AGC target loudness in tenths of a dBFS RMS (-200 = -20.0 dBFS)
 		{"AlternativeOutputSampleRate", reader.GetLongValue("Mod Settings", "AlternativeOutputSampleRate", 48000)},
 		{"LoopingLeadUp", reader.GetLongValue("Mod Settings", "LoopingLeadUp", 0)},

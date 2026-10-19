@@ -424,6 +424,8 @@
     <Compile Include="Features\NoteByNote\Dev\MlModelVerifier.cs" />
     <Compile Include="Features\NoteByNote\MlServiceHost.cs" />
     <Compile Include="App\RuntimeBootstrap.cs" />
+    <Compile Include="Features\AudioBridge\SongLevelAnalysis.cs" />
+    <Compile Include="Features\AudioBridge\SongVolumeAnalyzer.cs" />
     <Reference Include="System.IO.Compression" />
     <EmbeddedResource Include="$(IntermediateOutputPath)BundledRuntime.zip">
       <LogicalName>RSMods.BundledRuntime.zip</LogicalName>

@@ -31,6 +31,7 @@
 #include "GameState.hpp"
 #include "Keybindings.hpp"
 #include "Shared/ProductVersion.hpp"
+#include "SongVolume/SongVolume.hpp"
 #include <filesystem>
 #include <cmath>
 #include <shellapi.h>
@@ -4260,25 +4261,38 @@ namespace Overlay
 			static int limTenths = -60;
 			static bool levelingOn = false;
 			static int targetTenths = -200;
+			static int boostTenths = 0;
 			if (!seeded) {
 				limOn = Settings::GetModSetting("AudioBridgeLimiter") != 0;
 				limTenths = Settings::GetModSetting("AudioBridgeLimiterLevel"); if (limTenths == 0) limTenths = -60;
-				levelingOn = Settings::GetModSetting("AudioBridgeLoudnessMatch") != 0;
-				targetTenths = std::clamp(Settings::GetModSetting("AudioBridgeLoudnessTarget"), -300, -120);
+				levelingOn = Audio::SongVolume::Enabled();
+				targetTenths = Audio::SongVolume::TargetTenths();
+				boostTenths = Audio::SongVolume::BoostTenths();
 				seeded = true;
 			}
 
-			BeginCard("Volume leveling");
-			const bool levelingChanged = ToggleRow("Level song volume",
-				"Gradually balances louder and quieter songs. Adjusts the whole playback mix, including guitar and effects, without changing note detection or adding latency.",
+			BeginCard("Song volume");
+			const bool levelingChanged = ToggleRow("Normalize song volume",
+				"Matches backing-track levels across songs. Your guitar, voice and effects stay unchanged. Set the Song fader once to balance the normalized backing tracks against your guitar.",
 				&levelingOn);
 			ImGui::BeginDisabled(!levelingOn);
 			float target = targetTenths / 10.0f;
 			bool targetSaved = false;
 			const bool targetSlid = SliderRow("Target level", &target, -30.0f, -12.0f, "%.1f dBFS RMS", &targetSaved,
-				"Start at -20 dBFS. Lower is quieter. Takes a few seconds to settle; quiet passages can also be raised. Boost is limited to 6 dB and attenuation to 18 dB. Use Volume cap below to control peaks.");
+				"Start at -20 dBFS RMS. Lower is quieter. Accounts for the song's embedded volume using a common -12 dB soundbank reference. Measures each song once and uses one correction across the song. Without Song boost, peaks limit how far a quiet song can be raised. Use Song boost below for more volume with peak limiting.");
 			if (targetSlid) targetTenths = static_cast<int>(std::lround(target * 10.0f));
+			float boost = boostTenths / 10.0f;
+			bool boostSaved = false;
+			const bool boostSlid = SliderRow("Song boost", &boost, 0.0f, 10.0f, "+%.1f dB", &boostSaved,
+				"Extra backing-track volume after normalization. Above 0 dB, a song-only limiter automatically reduces peaks to stay below -1 dBFS. Higher boosts compress the song's dynamics. Guitar and effects are unchanged; no added playback latency.");
+			if (boostSlid) boostTenths = static_cast<int>(std::lround(boost * 10.0f));
 			ImGui::EndDisabled();
+			if (levelingChanged || targetSlid || targetSaved || boostSlid || boostSaved)
+			{
+				wchar_t command[48]; swprintf_s(command, L"%d,%d,%d", levelingOn ? 1 : 0, targetTenths, boostTenths);
+				if (levelingChanged || targetSaved || boostSaved) BridgeControl(31, command); else PreviewControl(31, command);
+			}
+			Caption(Audio::SongVolume::Status().c_str());
 			EndCard();
 
 			BeginCard("Volume cap");
@@ -4293,11 +4307,10 @@ namespace Overlay
 				"Nothing in the game's output rises above this. Your interface volume still sets how loud that actually is.");
 			if (slid) limTenths = static_cast<int>(ceiling * 10 + (ceiling < 0 ? -0.5f : 0.5f));
 			ImGui::EndDisabled();
-			if (limChanged || slid || ceilingSaved || levelingChanged || targetSlid || targetSaved) {
-				// Both stages share op 16: changing either must preserve the other's settings.
-				wchar_t v[96]; swprintf_s(v, L"%d,%.6f,%d,%.6f", limOn ? 1 : 0,
-					std::pow(10.0, limTenths / 200.0), levelingOn ? 1 : 0, std::pow(10.0, targetTenths / 200.0));
-				if (limChanged || ceilingSaved || levelingChanged || targetSaved) BridgeControl(16, v); else PreviewControl(16, v);
+			if (limChanged || slid || ceilingSaved) {
+				// Output cap remains independent; never re-enable the retired whole-mix AGC.
+				wchar_t v[48]; swprintf_s(v, L"%d,%.6f,0,0.1", limOn ? 1 : 0, std::pow(10.0, limTenths / 200.0));
+				if (limChanged || ceilingSaved) BridgeControl(16, v); else PreviewControl(16, v);
 			}
 			EndCard();
 		}

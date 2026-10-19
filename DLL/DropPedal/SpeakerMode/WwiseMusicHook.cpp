@@ -4,6 +4,7 @@
 #include "PreRenderedPitchCache.hpp"
 #include "StreamingPitchShifter.hpp"
 #include "WwiseMusicHook.hpp"
+#include "SongVolume/SongVolume.hpp"
 
 namespace
 {
@@ -54,6 +55,7 @@ namespace
 		volatile LONG failureReported;
 		volatile LONG lastActiveTick;   // GetTickCount() when the source was claimed or last produced audio
 		int generationSemitones;
+		Audio::SongVolume::ProcessingState songVolume;
 		PVOID activeCache;
 		Audio::SongShift::StreamingPitchShifter pitchShifter;
 	};
@@ -135,6 +137,7 @@ namespace
 				InterlockedExchange(&sourceState.lastActiveTick, static_cast<LONG>(GetTickCount()));
 				const LONG generation = InterlockedIncrement(&sourceState.nextGeneration);
 				sourceState.pitchShifter.ResetGeneration();
+				sourceState.songVolume = {};
 				sourceState.generationSemitones = 0;
 				InterlockedExchangePointer(&sourceState.activeCache, nullptr);
 				InterlockedExchange(&sourceState.failureReported, 0);
@@ -161,6 +164,7 @@ namespace
 				InterlockedExchange(&oldest->lastActiveTick, static_cast<LONG>(now));
 				const LONG generation = InterlockedIncrement(&oldest->nextGeneration);
 				oldest->pitchShifter.ResetGeneration();
+				oldest->songVolume = {};
 				oldest->generationSemitones = 0;
 				InterlockedExchangePointer(&oldest->activeCache, nullptr);
 				InterlockedExchange(&oldest->failureReported, 0);
@@ -400,6 +404,18 @@ namespace
 	{
 		originalVorbisFileDecoderOutput(self, unused, outputState);
 		ProcessMusicOutput(self, outputState);
+		// The same isolated backing-track samples are used with or without Speaker Mode.
+		// Match the selected song's analyzed duration/rate; unrelated decoder output is bypassed.
+		if (IsSupportedMusicStream(outputState))
+		{
+			auto* state = FindDecoderSource(self);
+			if (state)
+			{
+				auto* words = static_cast<AkUInt32*>(outputState);
+				auto* counts = reinterpret_cast<AkUInt16*>(words + 3);
+				Audio::SongVolume::Process(reinterpret_cast<int16_t*>(words[0]), counts[1], words[8], words[9], state->songVolume);
+			}
+		}
 	}
 
 	void HookFileDecoderOutput(IAkSoftwareCodec* source)
@@ -706,6 +722,7 @@ void Audio::SongShift::WwiseMusicHook::Poll()
 	if (currentTick < nextCachePassTick) return;
 	nextCachePassTick = currentTick + 250;
 
+	Audio::SongVolume::Poll();
 	UpdateFullSongCaches();
 	LogCacheProbes();
 	Audio::SongShift::PreRenderedPitchCache::Maintain();

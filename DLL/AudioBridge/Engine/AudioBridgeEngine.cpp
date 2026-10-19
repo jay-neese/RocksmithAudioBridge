@@ -26,6 +26,7 @@
 #include "OutputBackend.hpp"
 #include "CableGamePeriod.hpp"
 #include "GameToneLatency.hpp"
+#include "SongVolume/SongVolume.hpp"
 #include <wrl/client.h>
 #include <functiondiscoverykeys_devpkey.h>
 
@@ -247,6 +248,24 @@ namespace Audio::SharedOutput
 				: VolumeControl::SetPlaybackVolume(request.operation - 7, static_cast<float>(volume)) ? S_OK : E_FAIL;
 			return true;
 		}
+		case 31:
+		{
+			int on = 0, tenths = 0, boost = Audio::SongVolume::BoostTenths(); wchar_t extra = 0;
+			const int parsed = swscanf_s(request.value, L"%d,%d,%d%c", &on, &tenths, &boost, &extra, 1u);
+			const bool valid = parsed == 3 || (parsed == 2
+				&& swscanf_s(request.value, L"%d,%d%c", &on, &tenths, &extra, 1u) == 2);
+			if (!valid || (on != 0 && on != 1) || tenths < -300 || tenths > -120 || boost < 0 || boost > 100)
+				response.result = E_INVALIDARG;
+			else
+			{
+				Audio::SongVolume::Configure(on != 0, tenths, boost);
+				response.result = PersistCustomSetting("SongVolumeNormalize", on);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeTarget", tenths);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeBoost", boost);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("AudioBridgeLoudnessMatch", 0);
+			}
+			return true;
+		}
 		case 15:
 			// Guitar input make-up gain, signed tenths of a dB ("60" = +6.0 dB), as RSMods.ini stores it.
 			if (!parseInteger(integer) || integer < -240 || integer > 240) response.result = E_INVALIDARG;
@@ -274,7 +293,7 @@ namespace Audio::SharedOutput
 			if (!valid) response.result = E_INVALIDARG;
 			else
 			{
-				const HRESULT guard = configureGuard(limOn != 0, static_cast<float>(ceiling), agcOn != 0, static_cast<float>(target))
+				const HRESULT guard = configureGuard(limOn != 0, static_cast<float>(ceiling), false, static_cast<float>(target))
 					? S_OK : HRESULT_FROM_WIN32(ERROR_NOT_READY);
 				// The ceiling cap is a deliberate saved state, like the guitar-input controls, so write it back to
 				// survive a relaunch. Ceiling and target arrive linear; store them as tenths of a dBFS, the inverse
@@ -285,7 +304,7 @@ namespace Audio::SharedOutput
 				const long targetTenths = target > 0.0 ? std::lround(200.0 * std::log10(target)) : -200;
 				HRESULT persist = PersistCustomSetting("AudioBridgeLimiter", limOn);
 				if (SUCCEEDED(persist)) persist = PersistCustomSetting("AudioBridgeLimiterLevel", ceilingTenths);
-				if (SUCCEEDED(persist)) persist = PersistCustomSetting("AudioBridgeLoudnessMatch", agcOn);
+				if (SUCCEEDED(persist)) persist = PersistCustomSetting("AudioBridgeLoudnessMatch", 0);
 				if (SUCCEEDED(persist)) persist = PersistCustomSetting("AudioBridgeLoudnessTarget", targetTenths);
 				response.result = FAILED(guard) ? guard : persist;
 			}
@@ -865,7 +884,7 @@ namespace Audio::SharedOutput
 			};
 			const bool limiterOn = read(L"AudioBridgeLimiter", 0) != 0;
 			const float ceiling = std::pow(10.0f, static_cast<float>(read(L"AudioBridgeLimiterLevel", -60)) / 200.0f);
-			const bool agcOn = read(L"AudioBridgeLoudnessMatch", 0) != 0;
+			const bool agcOn = false; // Song-only normalization replaces whole-mix leveling.
 			const float target = std::pow(10.0f, static_cast<float>(read(L"AudioBridgeLoudnessTarget", -200)) / 200.0f);
 			if (physical->ConfigureOutputGuard(limiterOn, ceiling, agcOn, target))
 				LOG_INFO("(AUDIO ROUTING) Saved output limiter applied to the Cable shared-output engine" << std::endl);

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Overlay\OverlayInputCapture.cpp" />
+    <ClCompile Include="SongVolume\SongVolume.cpp" />
     <ClCompile Include="AudioBridge\Input\InputCaptureHook.cpp" />
     <ClCompile Include="AudioBridge\Cable\CableInput.cpp" />
     <ClCompile Include="NoteByNote\Ml\MlAudioExporter.cpp" />

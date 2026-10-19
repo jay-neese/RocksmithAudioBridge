@@ -243,20 +243,58 @@ Levels reset when the game closes.
 
 **Overlay page:** Mixer.
 
-Open the in-game overlay with **\\**, then choose **Output > Volume leveling >
-Level song volume**. Turn it on
-to gradually bring louder and quieter songs toward a common playback level.
-Start with the default **-20 dBFS RMS** target; lower values give quieter
-playback. The setting and target are saved for the next launch.
+Open the in-game overlay with **\\**, then choose **Output > Song volume >
+Normalize song volume**. Start with the default **-20 dBFS RMS** target.
+Backing tracks get individual corrections toward that target. Guitar, effects,
+voice and note detection remain independent. Set the Song fader to a comfortable
+backing-track volume once; normalization compensates for differences between
+recordings underneath that setting. Lower target values give quieter songs.
+The correction includes the backing track's authored soundbank volume, which
+Rocksmith applies after decoding. Targets use a common -12 dB soundbank reference
+(for example, a -14 dBFS RMS target corresponds to -26 dBFS RMS after the bank,
+before the game's other mixer gains). This avoids making tracks with louder
+soundbank settings louder after normalization. The overlay reports the bank
+volume alongside the correction. Existing settings are preserved; some songs
+will be quieter than with the earlier decoder-only normalization.
 
-Leveling adjusts the entire output mix, including your audible guitar and
-effects, while leaving guitar input and note detection unchanged. It adds no
-latency, but takes a few seconds to settle when the volume changes. Boost is
-limited to 6 dB and attenuation to 18 dB, so unusually quiet or loud tracks may
-not reach the target. This is live RMS leveling rather than a stored loudness
-measurement for each song; quiet sections within a song can also be raised.
-The independent **Output > Volume cap > Cap the maximum volume** limiter
-can control peaks and adds its existing few milliseconds of look-ahead latency.
+The first encounter with a track starts a background analysis. Playback stays at
+its original level until the overlay says analysis is ready; a short gain ramp
+then applies the correction without a sudden jump. Subsequent encounters reuse
+the measurement. A song gets one constant correction, preserving its intentional
+quiet and loud passages. There is no added playback latency. Analysis uses
+silence-gated RMS, not LUFS, so equal measured levels may still sound different.
+Boost is limited to 12 dB and the decoded song's sample peaks are kept below
+-1 dBFS; some quiet, transient-heavy tracks cannot reach the target. The largest
+attenuation is 24 dB. Pitch-shifted audio can have different peaks.
+
+The analyzer reuses Speaker Mode's WEM extractor but normalization also works
+with Speaker Mode and Drop Pedal off. It matches the selected song by decoded
+duration and sample rate, applies only during gameplay (not menu previews), and
+bypasses unsupported or failed analyses. An updated song archive invalidates its
+cached measurement. Measurements live in
+`%LOCALAPPDATA%\Rocksmith Audio Bridge\SongVolume`; decoded WAVs are temporary.
+The bank-aware analysis uses a new cache version, so tracks are remeasured once
+after updating. Bank volumes from -96 to +24 dB are supported, including the
+positive gain used by "No Sleep Till Brooklyn". For positive bank gain, both
+static peak protection and the live limiter reserve extra decoder headroom so
+the later bank gain keeps sample peaks below -1 dBFS. Unreadable or unsupported
+bank volumes bypass normalization rather than guessing a correction. Peak and
+gain limits can still prevent unusually quiet tracks from reaching the target.
+Existing whole-mix leveling is retired and no longer applied at startup.
+The independent **Output > Volume cap > Cap the maximum volume** limiter still
+controls final-output peaks, with its existing look-ahead latency.
+
+If normalized songs are still too quiet with the Song fader at 100, increase
+**Song boost** (0 to +10 dB) in the same **Output > Song volume** card. Start at
++3 dB. This is extra gain relative to the normalized level, not a positive dBFS
+target. Above 0 dB, a stereo-linked limiter automatically controls the backing
+track's sample peaks at -1 dBFS. It replaces the static peak restriction while
+boost is active, allowing more average volume by compressing song peaks. The
+status line shows the boost and current limiter gain reduction. Your guitar,
+voice and effects remain independent. The limiter adds no look-ahead delay.
+At large boosts, audible dynamics change and the achieved volume increase varies
+by recording. Setting Song boost to 0 restores the original normalization mode.
+Boost is off by default and is saved with the other song-volume settings.
 
 ## Guitar input cleanup
 

@@ -242,6 +242,9 @@ namespace RSMods
                     { ReadSettings.AudioBridgeLimiterLevelIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLimiterLevelIdentifier, "-60")}, // Limiter ceiling in tenths of a dBFS (-60 = -6.0 dBFS): a look-ahead brickwall limiter holds the output at or below this.
                     { ReadSettings.AudioBridgeLoudnessMatchIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLoudnessMatchIdentifier, "0") }, // Automatic output volume leveling (0 = off, 1 = on).
                     { ReadSettings.AudioBridgeLoudnessTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLoudnessTargetIdentifier, "-200") }, // Leveling target in tenths of a dBFS RMS (-200 = -20 dBFS).
+                    { ReadSettings.SongVolumeNormalizeIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeNormalizeIdentifier, "0") }, // Per-song backing-track normalization.
+                    { ReadSettings.SongVolumeTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeTargetIdentifier, "-200") }, // Gated RMS target, tenths of a dBFS.
+                    { ReadSettings.SongVolumeBoostIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeBoostIdentifier, "0") }, // Extra song gain, tenths of a dB (0..100), with automatic song-only peak limiting.
                     { ReadSettings.AlternativeOutputSampleRateIdentifier, CreateDefaultOnOldINI(ReadSettings.AlternativeOutputSampleRateIdentifier, "48000") }, // Alternative frequency to use when looking for Audio Output devices.
                     { ReadSettings.LoopingLeadUpIdentifier, CreateDefaultOnOldINI(ReadSettings.LoopingLeadUpIdentifier, "0") }, // Amount of lead-up time we should give for loops.
                     { ReadSettings.RewindByIdentifier, CreateDefaultOnOldINI(ReadSettings.RewindByIdentifier, "5000") }, // Amount of time (in ms) to go back when the user presses the rewind key.

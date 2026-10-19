@@ -64,7 +64,7 @@ namespace RSMods
                              // Mod Settings
                              ExtendedRangeTuning, CheckForNewSongInterval, RiffRepeaterSpeedInterval, TuningPedal, MidiTuningOffset,
                              VolumeControlInterval, SecondaryMonitorXPosition, SecondaryMonitorYPosition, OverrideInputVolume, AsioInputGain, NoiseGateThreshold, CompressorStrength, HumFilter, RocksmithGateOverride, RocksmithGateThreshold, AudioBridgeLimiter, AudioBridgeLimiterLevel, AlternativeOutputSampleRate, LoopingLeadUp,
-                             AudioBridgeLoudnessMatch, AudioBridgeLoudnessTarget, RewindBy, RewindLeadup, CustomNSPTimeLimit,
+                             AudioBridgeLoudnessMatch, AudioBridgeLoudnessTarget, SongVolumeNormalize, SongVolumeTarget, SongVolumeBoost, RewindBy, RewindLeadup, CustomNSPTimeLimit,
 
                              // Guitar Speak
                              GuitarSpeakDelete, GuitarSpeakSpace, GuitarSpeakEnter, GuitarSpeakTab, GuitarSpeakPGUP, GuitarSpeakPGDN, GuitarSpeakUP, GuitarSpeakDN, GuitarSpeakESC,
@@ -257,6 +257,9 @@ namespace RSMods
             AudioBridgeLimiterLevelIdentifier       = "AudioBridgeLimiterLevel = ",
             AudioBridgeLoudnessMatchIdentifier      = "AudioBridgeLoudnessMatch = ",
             AudioBridgeLoudnessTargetIdentifier     = "AudioBridgeLoudnessTarget = ",
+            SongVolumeNormalizeIdentifier          = "SongVolumeNormalize = ",
+            SongVolumeTargetIdentifier             = "SongVolumeTarget = ",
+            SongVolumeBoostIdentifier              = "SongVolumeBoost = ",
             AlternativeOutputSampleRateIdentifier   = "AlternativeOutputSampleRate = ",
             LoopingLeadUpIdentifier                 = "LoopingLeadUp = ",
             RewindByIdentifier                      = "RewindBy = ",
@@ -404,6 +407,9 @@ namespace RSMods
             AudioBridgeLimiterLevelIdentifier,
             AudioBridgeLoudnessMatchIdentifier,
             AudioBridgeLoudnessTargetIdentifier,
+            SongVolumeNormalizeIdentifier,
+            SongVolumeTargetIdentifier,
+            SongVolumeBoostIdentifier,
             RecordingHotkeyIdentifier,
 			MonitorOutputIdentifier,
 			AudioDiagnosticsOverlayIdentifier,
@@ -823,6 +829,12 @@ namespace RSMods
                     return FillSettingVariable(AudioBridgeLoudnessMatchIdentifier, SettingType.STRING, currentLine, out AudioBridgeLoudnessMatch);
                 if (IdentifierIsFound(currentLine, AudioBridgeLoudnessTargetIdentifier, identifierToGrab))
                     return FillSettingVariable(AudioBridgeLoudnessTargetIdentifier, SettingType.STRING, currentLine, out AudioBridgeLoudnessTarget);
+                if (IdentifierIsFound(currentLine, SongVolumeNormalizeIdentifier, identifierToGrab))
+                    return FillSettingVariable(SongVolumeNormalizeIdentifier, SettingType.STRING, currentLine, out SongVolumeNormalize);
+                if (IdentifierIsFound(currentLine, SongVolumeTargetIdentifier, identifierToGrab))
+                    return FillSettingVariable(SongVolumeTargetIdentifier, SettingType.STRING, currentLine, out SongVolumeTarget);
+                if (IdentifierIsFound(currentLine, SongVolumeBoostIdentifier, identifierToGrab))
+                    return FillSettingVariable(SongVolumeBoostIdentifier, SettingType.STRING, currentLine, out SongVolumeBoost);
                 if (IdentifierIsFound(currentLine, AlternativeOutputSampleRateIdentifier, identifierToGrab))
                     return FillSettingVariable(AlternativeOutputSampleRateIdentifier, SettingType.STRING, currentLine, out AlternativeOutputSampleRate);
                 if (IdentifierIsFound(currentLine, LoopingLeadUpIdentifier, identifierToGrab))

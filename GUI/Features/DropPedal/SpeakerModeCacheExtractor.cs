@@ -49,7 +49,7 @@ namespace RSMods
 			return true;
 		}
 
-		private static void Extract(
+		internal static void Extract(
 			string rocksmithDirectory,
 			string bankName,
 			string wavePath)
@@ -302,7 +302,7 @@ namespace RSMods
 			}
 		}
 
-		private static SpeakerCacheSource FindSource(string rocksmithDirectory, string bankName)
+		internal static SpeakerCacheSource FindSource(string rocksmithDirectory, string bankName)
 		{
 			var archivePaths = Directory
 				.EnumerateFiles(Path.Combine(rocksmithDirectory, "dlc"), "*_p.psarc", SearchOption.AllDirectories)
@@ -351,7 +351,7 @@ namespace RSMods
 							$"Bank {bankName} maps to {matchingWems.Count} WEM entries in {archivePath}; expected exactly one.");
 					}
 
-					return new SpeakerCacheSource(archivePath, matchingWems[0]);
+					return new SpeakerCacheSource(archivePath, matchingWems[0], bankBytes);
 				}
 			}
 
@@ -436,11 +436,13 @@ namespace RSMods
 	{
 		public string ArchivePath { get; }
 		public string WemEntryPath { get; }
+		public byte[] BankBytes { get; }
 
-		public SpeakerCacheSource(string archivePath, PsarcTOCEntry wemEntry)
+		public SpeakerCacheSource(string archivePath, PsarcTOCEntry wemEntry, byte[] bankBytes)
 		{
 			ArchivePath = Path.GetFullPath(archivePath);
 			WemEntryPath = wemEntry.Path;
+			BankBytes = bankBytes;
 		}
 	}
 }

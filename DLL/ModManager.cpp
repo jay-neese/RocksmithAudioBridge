@@ -256,7 +256,7 @@ namespace ModManager {
 	void ApplyStartupMods()
 	{
 		const bool skipAudio = IsHookGroupSkipped("audio");
-		if (!skipAudio && DropPedal::IsConfiguredEnabled())
+		if (!skipAudio)
 		{
 			Audio::SongShift::WwiseMusicHook::Install();
 		}
@@ -400,7 +400,8 @@ namespace ModManager {
 	/// </summary>
 	void HandleAlwaysOnMods(GameLoopState& state) {
 
-		if (DropPedal::IsConfiguredEnabled())
+		static const bool pollSongAudio = !IsHookGroupSkipped("audio");
+		if (pollSongAudio)
 		{
 			Audio::SongShift::WwiseMusicHook::Poll();
 		}
@@ -707,7 +708,7 @@ namespace ModManager {
 		// Levels are stored in tenths of a dBFS (e.g. -60 = -6.0 dBFS ceiling; -200 = -20.0 dBFS AGC target).
 		const bool limiterOn = Settings::GetModSetting("AudioBridgeLimiter") != 0;
 		const float ceilingDb = Settings::GetModSetting("AudioBridgeLimiterLevel") / 10.0f;
-		const bool agcOn = Settings::GetModSetting("AudioBridgeLoudnessMatch") != 0;
+		const bool agcOn = false; // Retired whole-mix AGC; song normalization must leave the guitar alone.
 		const float targetDb = Settings::GetModSetting("AudioBridgeLoudnessTarget") / 10.0f;
 		const float ceiling = std::pow(10.0f, ceilingDb / 20.0f);
 		const float target = std::pow(10.0f, targetDb / 20.0f);
