@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(OutputLevelingTests LANGUAGES CXX)
+enable_testing()
+add_executable(OutputLevelingTests OutputLevelingTests.cpp)
+target_compile_features(OutputLevelingTests PRIVATE cxx_std_17)
+add_test(NAME OutputLevelingTests COMMAND OutputLevelingTests)

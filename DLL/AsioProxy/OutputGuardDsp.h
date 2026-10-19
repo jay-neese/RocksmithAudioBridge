@@ -86,6 +86,11 @@ namespace OutputGuardDsp
 			double agg = 0.0;
 			for (int i = 0; i < channels; ++i) agg += channelMeanSquare[i];
 			agg /= channels;
+			// Gate on the current block, not the decaying envelope: otherwise pauses drive the
+			// desired gain up to maximum boost just before the next song starts.
+			if (agg <= static_cast<double>(m_cfg.agcFloorRms) * m_cfg.agcFloorRms) return;
+			// Seed from real audio so a new stream does not mistake its empty history for a quiet song.
+			if (m_envMs <= 0.0) m_envMs = agg;
 
 			// Smooth the mean-square toward this block over the AGC time constant.
 			const double a = 1.0 - std::pow(1.0 - static_cast<double>(m_agcBlockDecayPerSample), frames);

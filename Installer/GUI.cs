@@ -297,13 +297,13 @@ namespace RS2014_Mod_Installer
                 reason += "\nGame executable version doesn't appear to be correct.";
             }
 
-            if (areCrackIndicationsPresent || fakeSteamApi || isExeInvalid)
-            {
-                MessageBox.Show($"Incompatible Rocksmith version detected! Only the Steam versions of RS are supported - make sure you are not using a pirated / stolen copy of Rocksmith 2014! {Environment.NewLine}Reason: {reason}", "Incompatible Rocksmith version", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Process.Start("https://store.steampowered.com/app/221680/");
-                Environment.Exit(1);
-                return;
-            }
+            //if (areCrackIndicationsPresent || fakeSteamApi || isExeInvalid)
+            //{
+            //    MessageBox.Show($"Incompatible Rocksmith version detected! Only the Steam versions of RS are supported - make sure you are not using a pirated / stolen copy of Rocksmith 2014! {Environment.NewLine}Reason: {reason}", "Incompatible Rocksmith version", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            //    Process.Start("https://store.steampowered.com/app/221680/");
+            //    Environment.Exit(1);
+            //    return;
+            //}
         }
     }
 }

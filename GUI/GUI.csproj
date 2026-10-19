@@ -125,7 +125,7 @@
     </Compile>
     <Compile Include="GuitarSpeak.cs" />
     <Compile Include="MemoryStream.cs" />
-	<Compile Include="Features\NoteByNote\Dev\NoteByNoteChartExtractor.cs" />
+    <Compile Include="Features\NoteByNote\Dev\NoteByNoteChartExtractor.cs" />
     <Compile Include="Features\NoteByNote\NoteByNoteMenuInstaller.cs" />
     <Compile Include="Profiles.cs" />
     <Compile Include="Shared\PsarcEntryPath.cs" />
@@ -143,27 +143,59 @@
     <Compile Include="Twitch\TwitchReward.cs" />
     <Compile Include="Twitch\TwitchSettings.cs" />
     <Compile Include="Twitch\Auth\WebServer.cs" />
-    <Compile Include="Audio\AudioRoutingPanel.cs" />
-    <Compile Include="Audio\ResponsiveColumns.cs" />
-    <Compile Include="Audio\MixerStrip.cs" />
-    <Compile Include="Audio\MixerGroup.cs" />
+    <Compile Include="Audio\AudioRoutingPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Audio\ResponsiveColumns.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\MixerStrip.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\MixerGroup.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Audio\MixerChannels.cs" />
-    <Compile Include="Audio\ChannelMeter.cs" />
+    <Compile Include="Audio\ChannelMeter.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Audio\MeterMotion.cs" />
-    <Compile Include="Audio\StudioSelector.cs" />
-    <Compile Include="Audio\StudioNav.cs" />
-    <Compile Include="Audio\StudioVolumeSlider.cs" />
+    <Compile Include="Audio\StudioSelector.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioNav.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioVolumeSlider.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Features\VideoRecorder\WindowCaptureRecorder.cs" />
     <Compile Include="Features\VideoRecorder\VideoTakeHost.cs" />
     <Compile Include="Shared\Controls\StudioTheme.cs" />
-    <Compile Include="Shared\Controls\StudioButton.cs" />
-    <Compile Include="Audio\StatusChip.cs" />
-    <Compile Include="Shared\Controls\SegmentedControl.cs" />
-	<Compile Include="Audio\RockerToggle.cs" />
-    <Compile Include="Audio\StudioCard.cs" />
-    <Compile Include="Audio\StudioExpander.cs" />
-    <Compile Include="Audio\LevelMeter.cs" />
-    <Compile Include="Audio\TakeList.cs" />
+    <Compile Include="Shared\Controls\StudioButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StatusChip.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Shared\Controls\SegmentedControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\RockerToggle.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioExpander.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\LevelMeter.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\TakeList.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Audio\StudioFormat.cs" />
     <Compile Include="Audio\AudioControlClient.cs" />
     <Compile Include="Features\AudioBridge\BridgeDriverSetup.cs" />
@@ -171,26 +203,56 @@
     <Compile Include="Audio\OutputApplyPlan.cs" />
     <Compile Include="Audio\AudioBufferSnapshot.cs" />
     <Compile Include="Features\AudioBridge\AudioInputMode.cs" />
-    <Compile Include="Audio\AudioRoutingWindow.cs" />
+    <Compile Include="Audio\AudioRoutingWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Audio\AudioBridgeWindow.cs" />
-    <Compile Include="Audio\StudioSlider.cs" />
-    <Compile Include="Audio\StudioCheck.cs" />
-    <Compile Include="Audio\StudioNumber.cs" />
-    <Compile Include="Features\AudioBridge\UI.BridgeSettingsSync.cs" />
-    <Compile Include="Features\AudioBridge\UI.AudioBridgeSetup.cs" />
-    <Compile Include="Features\AudioBridge\UI.AudioBridgeTab.cs" />
-    <Compile Include="Features\RsAsio\UI.RsAsioTab.cs" />
+    <Compile Include="Audio\StudioSlider.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioCheck.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Audio\StudioNumber.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Features\AudioBridge\UI.BridgeSettingsSync.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Features\AudioBridge\UI.AudioBridgeSetup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Features\AudioBridge\UI.AudioBridgeTab.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Features\RsAsio\UI.RsAsioTab.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Features\RsAsio\IniText.cs" />
     <Compile Include="Features\RsAsio\RsAsioIniSetup.cs" />
     <Compile Include="Features\Audit\AuditChecks.cs" />
-    <Compile Include="Features\Audit\UI.AuditTab.cs" />
+    <Compile Include="Features\Audit\UI.AuditTab.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Features\BugReport\BugReport.cs" />
-    <Compile Include="Features\BugReport\UI.BugReport.cs" />
-    <Compile Include="Controls\ColourWheel.cs" />
-    <Compile Include="Controls\ColourChip.cs" />
-    <Compile Include="Controls\FeatureSection.cs" />
-    <Compile Include="Controls\ColourPickerDialog.cs" />
-    <Compile Include="Controls\FeatureColourSettings.cs" />
+    <Compile Include="Features\BugReport\UI.BugReport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controls\ColourWheel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ColourChip.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\FeatureSection.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\ColourPickerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controls\FeatureColourSettings.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Audio\AudioDeviceChoice.cs" />
     <Compile Include="UI.cs">
       <SubType>Form</SubType>

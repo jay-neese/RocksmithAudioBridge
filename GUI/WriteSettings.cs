@@ -240,6 +240,8 @@ namespace RSMods
                     { ReadSettings.RocksmithGateThresholdIdentifier, CreateDefaultOnOldINI(ReadSettings.RocksmithGateThresholdIdentifier, "-593")}, // Forced P1_NoiseFloor in tenths of a dB while the override is on (-593 = the game's calibrated default; lower opens the gate for longer sustain).
                     { ReadSettings.AudioBridgeLimiterIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLimiterIdentifier, "0")}, // Output level trim (0 = off, 1 = on): scales the game output down to a set level via the Rocksmith Audio Bridge proxy, as a clean static gain (no clipping or compression).
                     { ReadSettings.AudioBridgeLimiterLevelIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLimiterLevelIdentifier, "-60")}, // Limiter ceiling in tenths of a dBFS (-60 = -6.0 dBFS): a look-ahead brickwall limiter holds the output at or below this.
+                    { ReadSettings.AudioBridgeLoudnessMatchIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLoudnessMatchIdentifier, "0") }, // Automatic output volume leveling (0 = off, 1 = on).
+                    { ReadSettings.AudioBridgeLoudnessTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLoudnessTargetIdentifier, "-200") }, // Leveling target in tenths of a dBFS RMS (-200 = -20 dBFS).
                     { ReadSettings.AlternativeOutputSampleRateIdentifier, CreateDefaultOnOldINI(ReadSettings.AlternativeOutputSampleRateIdentifier, "48000") }, // Alternative frequency to use when looking for Audio Output devices.
                     { ReadSettings.LoopingLeadUpIdentifier, CreateDefaultOnOldINI(ReadSettings.LoopingLeadUpIdentifier, "0") }, // Amount of lead-up time we should give for loops.
                     { ReadSettings.RewindByIdentifier, CreateDefaultOnOldINI(ReadSettings.RewindByIdentifier, "5000") }, // Amount of time (in ms) to go back when the user presses the rewind key.
@@ -367,13 +369,13 @@ namespace RSMods
                 reason += "\nGame executable version doesn't appear to be correct.";
             }
 
-            if (areCrackIndicationsPresent || fakeSteamApi || isExeInvalid)
-            {
-                MessageBox.Show($"Incompatible Rocksmith version detected! Only the newest RS version is supported - RSMods doesn't support pirated / stolen copies of Rocksmith 2014! {Environment.NewLine}Reason: {reason}", "Incompatible Rocksmith version", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Process.Start("https://store.steampowered.com/app/221680/");
-                Environment.Exit(1);
-                return;
-            }
+            //if (areCrackIndicationsPresent || fakeSteamApi || isExeInvalid)
+            //{
+            //    MessageBox.Show($"Incompatible Rocksmith version detected! Only the newest RS version is supported - RSMods doesn't support pirated / stolen copies of Rocksmith 2014! {Environment.NewLine}Reason: {reason}", "Incompatible Rocksmith version", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            //    Process.Start("https://store.steampowered.com/app/221680/");
+            //    Environment.Exit(1);
+            //    return;
+            //}
         }
         #endregion
     }

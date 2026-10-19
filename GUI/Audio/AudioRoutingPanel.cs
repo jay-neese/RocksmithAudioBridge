@@ -131,8 +131,11 @@ namespace RSMods.Audio
 		private bool syncingCompressor;
 		private int? pendingCompressor;
 		private int persistedCompressor;
-		// Output limiter (proxy driver). Command "<limiterOn>,<ceiling>,<agcOn>,<target>" over op 16 (agcOn stays 0:
-		// the AGC stage is retired from the UI, so only the look-ahead brickwall limiter that holds the ceiling runs).
+		// Output limiter and automatic leveling share operation 16; every update preserves both stages.
+		private readonly StudioCheck loudnessCheck = new StudioCheck("Level song volume");
+		private readonly StudioSlider loudnessSlider = new StudioSlider { Minimum = -300, Maximum = -120, SmallChange = 1, LargeChange = 10, AccessibleName = "Volume leveling target, tenths of a decibel" };
+		private readonly StudioNumber loudnessInput = new StudioNumber { DecimalPlaces = 1, Increment = 0.1M, Minimum = -30.0M, Maximum = -12.0M, Value = -20.0M };
+		private bool syncingLoudness;
 		private readonly StudioCheck limiterCheck = new StudioCheck("Cap the maximum volume");
 		// Ceiling. Slider and box both work in 0.1 dB from -24 dBFS to 0; RSMods.ini and the DLL store tenths of
 		// a dBFS, and the proxy takes it as a linear ceiling (0 dBFS = full scale).
@@ -326,6 +329,13 @@ namespace RSMods.Audio
 			UpdateLimiterReadout();
 			ApplyOutputControlVisibility();
 			syncingLimiter = false;
+			syncingLoudness = true;
+			loudnessCheck.Checked = RSMods.ReadSettings.ProcessSettings(RSMods.ReadSettings.AudioBridgeLoudnessMatchIdentifier) == "1";
+			string loudnessRaw = RSMods.ReadSettings.ProcessSettings(RSMods.ReadSettings.AudioBridgeLoudnessTargetIdentifier);
+			loudnessSlider.Value = int.TryParse(loudnessRaw, out int loudnessTenths) ? Math.Max(-300, Math.Min(-120, loudnessTenths)) : -200;
+			loudnessInput.Value = loudnessSlider.Value / 10m;
+			syncingLoudness = false;
+			ApplyOutputControlVisibility();
 			WireEvents();
 			deviceEnumerator = new MMDeviceEnumerator();
 			Marshal.ThrowExceptionForHR(deviceEnumerator.RegisterEndpointNotificationCallback(this));
@@ -835,6 +845,10 @@ namespace RSMods.Audio
 			card.Add(StudioTheme.Hint("Levels mirror Rocksmith while connected. Select a speaker to mute; double-click a fader to return it to 100%."));
 			card.Add(BuildConsole(), true);
 			card.Add(mixerHint);
+			var leveling = FeatureGrid();
+			AddFeature(leveling, loudnessCheck, loudnessSlider, loudnessInput, "dBFS RMS",
+				"Keeps playback at a more consistent volume across songs. Adjusts the whole mix gradually, including guitar and effects, without changing note detection. Start at -20 dBFS; lower values are quieter. No added latency. Boost is limited to 6 dB, so very quiet songs may stay below the target. For peak control, use Cap the maximum volume in Setup.");
+			card.Add(leveling);
 			return card;
 		}
 
@@ -1064,6 +1078,7 @@ namespace RSMods.Audio
 			// A way to back out only exists once it is actually installed, and only while the game is closed:
 			// Proxy registration is independent of the user-owned RS_ASIO.ini and is safe to inspect here.
 			limiterCheck.Enabled = installed;
+			loudnessCheck.Enabled = installed;
 			ApplyOutputControlVisibility();          // the ceiling follows the limiter's on/off
 			string driver = mode == AudioInputMode.Asio && outputSelector.SelectedItem is AudioDeviceChoice output
 				? FindMatchingAsioDriver(output.Name) : null;
@@ -1174,6 +1189,32 @@ namespace RSMods.Audio
 			limiterLevelSlider.MouseUp += (sender, args) => PersistLimiterLevel();
 			limiterLevelSlider.KeyUp += (sender, args) => PersistLimiterLevel();
 			ceilingInput.ValueChanged += OnCeilingInputChanged;
+			loudnessCheck.CheckedChanged += (sender, args) =>
+			{
+				if (syncingLoudness) return;
+				ApplyOutputControlVisibility();
+				ApplyLoudnessChange();
+			};
+			loudnessSlider.ValueChanged += (sender, args) =>
+			{
+				if (syncingLoudness) return;
+				syncingLoudness = true;
+				loudnessInput.Value = loudnessSlider.Value / 10m;
+				syncingLoudness = false;
+				pendingLimiter = LimiterCommand();
+				lastMixerEdit = DateTime.UtcNow;
+				FlushMixerNow();
+			};
+			loudnessSlider.MouseUp += (sender, args) => PersistLoudness();
+			loudnessSlider.KeyUp += (sender, args) => PersistLoudness();
+			loudnessInput.ValueChanged += (sender, args) =>
+			{
+				if (syncingLoudness) return;
+				syncingLoudness = true;
+				loudnessSlider.Value = (int)Math.Round(loudnessInput.Value * 10m);
+				syncingLoudness = false;
+				ApplyLoudnessChange();
+			};
 			inputGainSlider.ValueChanged += OnInputGainChanged;
 			inputGainSlider.MouseUp += (sender, args) => PersistInputGain();
 			inputGainSlider.KeyUp += (sender, args) => PersistInputGain();
@@ -1655,7 +1696,7 @@ namespace RSMods.Audio
 				// Operation 20 = guitar input compressor strength, integer 0-100 (0 = off).
 				if (requestedCompressor.HasValue)
 					latestStatus = await client.SendAsync(20, requestedCompressor.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-				// Operation 16 = output level trim, "<gain>,<reserved>" linear (proxy driver).
+				// Operation 16 = limiter and leveling: "<limiterOn>,<ceiling>,<agcOn>,<target>".
 				if (requestedLimiter != null)
 					latestStatus = await client.SendAsync(16, requestedLimiter);
 				// Operation 23 = Rocksmith gate override, "<on>,<tenths>" (on 0/1; tenths = P1_NoiseFloor).
@@ -2776,16 +2817,35 @@ namespace RSMods.Audio
 		{
 			bool limOn = limiterCheck.Checked && limiterCheck.Enabled;
 			limiterLevelSlider.Enabled = ceilingInput.Enabled = limOn;
+			loudnessSlider.Enabled = loudnessInput.Enabled = loudnessCheck.Checked && loudnessCheck.Enabled;
 		}
 
-		// The proxy command (op 16): "<limiterOn>,<ceiling>,<agcOn>,<target>". The AGC stage is retired, so agcOn
-		// is always 0 and target is a fixed placeholder; only the look-ahead brickwall limiter runs.
+		private void ApplyLoudnessChange()
+		{
+			pendingLimiter = LimiterCommand();
+			lastMixerEdit = DateTime.UtcNow;
+			FlushMixerNow();
+			PersistLoudness();
+		}
+
+		private void PersistLoudness()
+		{
+			try
+			{
+				WriteBridgeSetting(RSMods.ReadSettings.AudioBridgeLoudnessMatchIdentifier, loudnessCheck.Checked ? "1" : "0");
+				WriteBridgeSetting(RSMods.ReadSettings.AudioBridgeLoudnessTargetIdentifier, loudnessSlider.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			}
+			catch (Exception error) { SetStatus("Could not save volume leveling: " + error.Message, ChipTone.Bad); }
+		}
+
+		// The proxy command (op 16): "<limiterOn>,<ceiling>,<agcOn>,<target>"; levels are linear.
 		private string LimiterCommand()
 		{
 			var ci = System.Globalization.CultureInfo.InvariantCulture;
 			int limOn = limiterCheck.Checked ? 1 : 0;
 			double ceiling = Math.Pow(10.0, (LimiterSliderToTenths(limiterLevelSlider.Value) / 10.0) / 20.0);
-			return limOn.ToString(ci) + "," + ceiling.ToString("0.######", ci) + ",0,0.1";
+			double target = Math.Pow(10.0, loudnessSlider.Value / 200.0);
+			return limOn.ToString(ci) + "," + ceiling.ToString("0.######", ci) + "," + (loudnessCheck.Checked ? "1" : "0") + "," + target.ToString("0.######", ci);
 		}
 
 		private void PersistLimiterLevel()

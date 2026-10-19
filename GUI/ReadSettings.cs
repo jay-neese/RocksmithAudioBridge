@@ -64,7 +64,7 @@ namespace RSMods
                              // Mod Settings
                              ExtendedRangeTuning, CheckForNewSongInterval, RiffRepeaterSpeedInterval, TuningPedal, MidiTuningOffset,
                              VolumeControlInterval, SecondaryMonitorXPosition, SecondaryMonitorYPosition, OverrideInputVolume, AsioInputGain, NoiseGateThreshold, CompressorStrength, HumFilter, RocksmithGateOverride, RocksmithGateThreshold, AudioBridgeLimiter, AudioBridgeLimiterLevel, AlternativeOutputSampleRate, LoopingLeadUp,
-                             RewindBy, RewindLeadup, CustomNSPTimeLimit,
+                             AudioBridgeLoudnessMatch, AudioBridgeLoudnessTarget, RewindBy, RewindLeadup, CustomNSPTimeLimit,
 
                              // Guitar Speak
                              GuitarSpeakDelete, GuitarSpeakSpace, GuitarSpeakEnter, GuitarSpeakTab, GuitarSpeakPGUP, GuitarSpeakPGDN, GuitarSpeakUP, GuitarSpeakDN, GuitarSpeakESC,
@@ -255,6 +255,8 @@ namespace RSMods
             RocksmithGateThresholdIdentifier        = "RocksmithGateThreshold = ",
             AudioBridgeLimiterIdentifier            = "AudioBridgeLimiter = ",
             AudioBridgeLimiterLevelIdentifier       = "AudioBridgeLimiterLevel = ",
+            AudioBridgeLoudnessMatchIdentifier      = "AudioBridgeLoudnessMatch = ",
+            AudioBridgeLoudnessTargetIdentifier     = "AudioBridgeLoudnessTarget = ",
             AlternativeOutputSampleRateIdentifier   = "AlternativeOutputSampleRate = ",
             LoopingLeadUpIdentifier                 = "LoopingLeadUp = ",
             RewindByIdentifier                      = "RewindBy = ",
@@ -400,6 +402,8 @@ namespace RSMods
 			RocksmithGateThresholdIdentifier,
             AudioBridgeLimiterIdentifier,
             AudioBridgeLimiterLevelIdentifier,
+            AudioBridgeLoudnessMatchIdentifier,
+            AudioBridgeLoudnessTargetIdentifier,
             RecordingHotkeyIdentifier,
 			MonitorOutputIdentifier,
 			AudioDiagnosticsOverlayIdentifier,
@@ -815,6 +819,10 @@ namespace RSMods
                     return FillSettingVariable(AudioBridgeLimiterIdentifier, SettingType.STRING, currentLine, out AudioBridgeLimiter);
                 if (IdentifierIsFound(currentLine, AudioBridgeLimiterLevelIdentifier, identifierToGrab))
                     return FillSettingVariable(AudioBridgeLimiterLevelIdentifier, SettingType.STRING, currentLine, out AudioBridgeLimiterLevel);
+                if (IdentifierIsFound(currentLine, AudioBridgeLoudnessMatchIdentifier, identifierToGrab))
+                    return FillSettingVariable(AudioBridgeLoudnessMatchIdentifier, SettingType.STRING, currentLine, out AudioBridgeLoudnessMatch);
+                if (IdentifierIsFound(currentLine, AudioBridgeLoudnessTargetIdentifier, identifierToGrab))
+                    return FillSettingVariable(AudioBridgeLoudnessTargetIdentifier, SettingType.STRING, currentLine, out AudioBridgeLoudnessTarget);
                 if (IdentifierIsFound(currentLine, AlternativeOutputSampleRateIdentifier, identifierToGrab))
                     return FillSettingVariable(AlternativeOutputSampleRateIdentifier, SettingType.STRING, currentLine, out AlternativeOutputSampleRate);
                 if (IdentifierIsFound(currentLine, LoopingLeadUpIdentifier, identifierToGrab))

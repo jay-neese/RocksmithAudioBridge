@@ -4258,11 +4258,28 @@ namespace Overlay
 			static bool seeded = false;
 			static bool limOn = false;
 			static int limTenths = -60;
+			static bool levelingOn = false;
+			static int targetTenths = -200;
 			if (!seeded) {
 				limOn = Settings::GetModSetting("AudioBridgeLimiter") != 0;
 				limTenths = Settings::GetModSetting("AudioBridgeLimiterLevel"); if (limTenths == 0) limTenths = -60;
+				levelingOn = Settings::GetModSetting("AudioBridgeLoudnessMatch") != 0;
+				targetTenths = std::clamp(Settings::GetModSetting("AudioBridgeLoudnessTarget"), -300, -120);
 				seeded = true;
 			}
+
+			BeginCard("Volume leveling");
+			const bool levelingChanged = ToggleRow("Level song volume",
+				"Gradually balances louder and quieter songs. Adjusts the whole playback mix, including guitar and effects, without changing note detection or adding latency.",
+				&levelingOn);
+			ImGui::BeginDisabled(!levelingOn);
+			float target = targetTenths / 10.0f;
+			bool targetSaved = false;
+			const bool targetSlid = SliderRow("Target level", &target, -30.0f, -12.0f, "%.1f dBFS RMS", &targetSaved,
+				"Start at -20 dBFS. Lower is quieter. Takes a few seconds to settle; quiet passages can also be raised. Boost is limited to 6 dB and attenuation to 18 dB. Use Volume cap below to control peaks.");
+			if (targetSlid) targetTenths = static_cast<int>(std::lround(target * 10.0f));
+			ImGui::EndDisabled();
+			EndCard();
 
 			BeginCard("Volume cap");
 			// Output protection (op 16; ceiling sent linear = pow(10, tenths/200)).
@@ -4276,9 +4293,11 @@ namespace Overlay
 				"Nothing in the game's output rises above this. Your interface volume still sets how loud that actually is.");
 			if (slid) limTenths = static_cast<int>(ceiling * 10 + (ceiling < 0 ? -0.5f : 0.5f));
 			ImGui::EndDisabled();
-			if (limChanged || slid || ceilingSaved) {
-				wchar_t v[48]; swprintf_s(v, L"%d,%.6f,0,0.1", limOn ? 1 : 0, std::pow(10.0, limTenths / 200.0));
-				if (limChanged || ceilingSaved) BridgeControl(16, v); else PreviewControl(16, v);
+			if (limChanged || slid || ceilingSaved || levelingChanged || targetSlid || targetSaved) {
+				// Both stages share op 16: changing either must preserve the other's settings.
+				wchar_t v[96]; swprintf_s(v, L"%d,%.6f,%d,%.6f", limOn ? 1 : 0,
+					std::pow(10.0, limTenths / 200.0), levelingOn ? 1 : 0, std::pow(10.0, targetTenths / 200.0));
+				if (limChanged || ceilingSaved || levelingChanged || targetSaved) BridgeControl(16, v); else PreviewControl(16, v);
 			}
 			EndCard();
 		}

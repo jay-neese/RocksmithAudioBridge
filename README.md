@@ -243,6 +243,21 @@ Levels reset when the game closes.
 
 **Overlay page:** Mixer.
 
+Open the in-game overlay with **\\**, then choose **Output > Volume leveling >
+Level song volume**. Turn it on
+to gradually bring louder and quieter songs toward a common playback level.
+Start with the default **-20 dBFS RMS** target; lower values give quieter
+playback. The setting and target are saved for the next launch.
+
+Leveling adjusts the entire output mix, including your audible guitar and
+effects, while leaving guitar input and note detection unchanged. It adds no
+latency, but takes a few seconds to settle when the volume changes. Boost is
+limited to 6 dB and attenuation to 18 dB, so unusually quiet or loud tracks may
+not reach the target. This is live RMS leveling rather than a stored loudness
+measurement for each song; quiet sections within a song can also be raised.
+The independent **Output > Volume cap > Cap the maximum volume** limiter
+can control peaks and adds its existing few milliseconds of look-ahead latency.
+
 ## Guitar input cleanup
 
 Fixes a quiet or noisy guitar signal before Rocksmith hears it: make-up gain, a
