@@ -1,9 +1,12 @@
 using Rocksmith2014PsarcLib.Psarc;
+using RocksmithToolkitLib;
+using RocksmithToolkitLib.DLCPackage;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 
 namespace RSMods
 {
@@ -60,6 +63,11 @@ namespace RSMods
 			}
 
 			var source = FindSource(rocksmithDirectory, bankName);
+			Extract(source, wavePath);
+		}
+
+		internal static void Extract(SpeakerCacheSource source, string wavePath)
+		{
 			var outputDirectory = Path.GetDirectoryName(wavePath);
 			if (string.IsNullOrEmpty(outputDirectory))
 			{
@@ -317,45 +325,67 @@ namespace RSMods
 			{
 				using (var archive = new PsarcFile(archivePath))
 				{
-					var bankEntry = archive.TOC.Entries.FirstOrDefault(entry =>
-						PsarcEntryPath.TryGetFileName(entry.Path, out string entryFileName)
-						&& string.Equals(
-							entryFileName,
-							bankName,
-							StringComparison.OrdinalIgnoreCase));
-					if (bankEntry == null)
-					{
-						continue;
-					}
-
-					byte[] bankBytes;
-					using (var bankStream = new MemoryStream())
-					{
-						archive.InflateEntry(bankEntry, bankStream);
-						bankBytes = bankStream.ToArray();
-					}
-
-					var matchingWems = archive.TOC.Entries.Where(entry =>
-					{
-						if (!PsarcEntryPath.TryGetWemMediaId(entry.Path, out uint mediaId))
-						{
-							return false;
-						}
-
-						return Contains(bankBytes, BitConverter.GetBytes(mediaId));
-					}).ToList();
-
-					if (matchingWems.Count != 1)
-					{
-						throw new InvalidDataException(
-							$"Bank {bankName} maps to {matchingWems.Count} WEM entries in {archivePath}; expected exactly one.");
-					}
-
-					return new SpeakerCacheSource(archivePath, matchingWems[0], bankBytes);
+					var source = FindSourceInArchive(archive, archivePath, bankName);
+					if (source != null) return source;
 				}
 			}
 
 			throw new FileNotFoundException($"Could not find Wwise bank {bankName} in the installed Rocksmith archives.");
+		}
+
+		internal static SpeakerCacheSource FindSourceInArchive(PsarcFile archive, string archivePath, string bankName)
+		{
+			var bankEntry = archive.TOC.Entries.FirstOrDefault(entry =>
+				PsarcEntryPath.TryGetFileName(entry.Path, out string entryFileName)
+				&& string.Equals(
+					entryFileName,
+					bankName,
+					StringComparison.OrdinalIgnoreCase));
+			if (bankEntry == null)
+			{
+				return null;
+			}
+
+			byte[] bankBytes;
+			using (var bankStream = new MemoryStream())
+			{
+				archive.InflateEntry(bankEntry, bankStream);
+				bankBytes = bankStream.ToArray();
+			}
+
+			var matchingWems = archive.TOC.Entries.Where(entry =>
+			{
+				if (!PsarcEntryPath.TryGetWemMediaId(entry.Path, out uint mediaId))
+				{
+					return false;
+				}
+
+				return Contains(bankBytes, BitConverter.GetBytes(mediaId));
+			}).ToList();
+
+			if (matchingWems.Count > 1)
+			{
+				// An unrelated ID's four bytes can occur elsewhere in a bank (observed
+				// in What's My Age Again). Resolve that ambiguity using the bank's
+				// parsed source ID; never pick the first byte-pattern match.
+				string temporaryBank = Path.Combine(Path.GetTempPath(), "rs-source-bank-" + Guid.NewGuid().ToString("N") + ".bnk");
+				try
+				{
+					File.WriteAllBytes(temporaryBank, bankBytes);
+					string parsedId = SoundBankGenerator2014.ReadWemFileId(temporaryBank, new Platform(GamePlatform.Pc, GameVersion.RS2014));
+					if (uint.TryParse(parsedId, NumberStyles.None, CultureInfo.InvariantCulture, out uint sourceId))
+						matchingWems = matchingWems.Where(entry => PsarcEntryPath.TryGetWemMediaId(entry.Path, out uint id) && id == sourceId).ToList();
+				}
+				finally { if (File.Exists(temporaryBank)) File.Delete(temporaryBank); }
+			}
+
+			if (matchingWems.Count != 1)
+			{
+				throw new InvalidDataException(
+					$"Bank {bankName} maps to {matchingWems.Count} WEM entries in {archivePath}; expected exactly one.");
+			}
+
+			return new SpeakerCacheSource(archivePath, matchingWems[0], bankBytes);
 		}
 
 		private static bool Contains(byte[] source, byte[] value)
@@ -407,9 +437,15 @@ namespace RSMods
 					throw new InvalidOperationException($"Could not start {Path.GetFileName(executablePath)}.");
 				}
 
-				var standardOutput = process.StandardOutput.ReadToEnd();
-				var standardError = process.StandardError.ReadToEnd();
-				process.WaitForExit();
+				var outputTask = process.StandardOutput.ReadToEndAsync();
+				var errorTask = process.StandardError.ReadToEndAsync();
+				if (!process.WaitForExit(120000))
+				{
+					process.Kill();
+					throw new TimeoutException($"{Path.GetFileName(executablePath)} did not finish within two minutes.");
+				}
+				var standardOutput = outputTask.GetAwaiter().GetResult();
+				var standardError = errorTask.GetAwaiter().GetResult();
 				if (process.ExitCode != 0)
 				{
 					throw new InvalidOperationException(

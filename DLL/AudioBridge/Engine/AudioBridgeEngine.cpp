@@ -250,18 +250,19 @@ namespace Audio::SharedOutput
 		}
 		case 31:
 		{
-			int on = 0, tenths = 0, boost = Audio::SongVolume::BoostTenths(); wchar_t extra = 0;
-			const int parsed = swscanf_s(request.value, L"%d,%d,%d%c", &on, &tenths, &boost, &extra, 1u);
-			const bool valid = parsed == 3 || (parsed == 2
-				&& swscanf_s(request.value, L"%d,%d%c", &on, &tenths, &extra, 1u) == 2);
-			if (!valid || (on != 0 && on != 1) || tenths < -300 || tenths > -120 || boost < 0 || boost > 100)
+			Audio::SongVolume::Configuration settings;
+			if (!Audio::SongVolume::ParseConfiguration(request.value, Audio::SongVolume::CurrentConfiguration(), settings))
 				response.result = E_INVALIDARG;
 			else
 			{
-				Audio::SongVolume::Configure(on != 0, tenths, boost);
-				response.result = PersistCustomSetting("SongVolumeNormalize", on);
-				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeTarget", tenths);
-				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeBoost", boost);
+				settings = Audio::SongVolume::SimplifyConfiguration(settings);
+				Audio::SongVolume::Configure(settings);
+				response.result = PersistCustomSetting("SongVolumeNormalize", settings.enabled ? 1 : 0);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeTarget", settings.rmsTarget);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeBoost", settings.boost);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeMode", settings.mode);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumeLufsTarget", settings.lufsTarget);
+				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("SongVolumePeakCompression", settings.compressPeaks ? 1 : 0);
 				if (SUCCEEDED(response.result)) response.result = PersistCustomSetting("AudioBridgeLoudnessMatch", 0);
 			}
 			return true;

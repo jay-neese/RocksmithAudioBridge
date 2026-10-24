@@ -4260,37 +4260,53 @@ namespace Overlay
 			static bool limOn = false;
 			static int limTenths = -60;
 			static bool levelingOn = false;
-			static int targetTenths = -200;
-			static int boostTenths = 0;
+			static int lufsTargetTenths = -210;
+			static bool compressPeaks = false;
 			if (!seeded) {
 				limOn = Settings::GetModSetting("AudioBridgeLimiter") != 0;
 				limTenths = Settings::GetModSetting("AudioBridgeLimiterLevel"); if (limTenths == 0) limTenths = -60;
 				levelingOn = Audio::SongVolume::Enabled();
-				targetTenths = Audio::SongVolume::TargetTenths();
-				boostTenths = Audio::SongVolume::BoostTenths();
+				lufsTargetTenths = Audio::SongVolume::LufsTargetTenths();
+				compressPeaks = Audio::SongVolume::PeakCompression();
 				seeded = true;
 			}
 
 			BeginCard("Song volume");
 			const bool levelingChanged = ToggleRow("Normalize song volume",
-				"Matches backing-track levels across songs. Your guitar, voice and effects stay unchanged. Set the Song fader once to balance the normalized backing tracks against your guitar.",
+				"Keeps backing tracks at a similar loudness as you change songs. Your guitar, voice and effects stay unchanged.",
 				&levelingOn);
 			ImGui::BeginDisabled(!levelingOn);
-			float target = targetTenths / 10.0f;
+			const auto loudnessRange = Audio::SongVolume::AvailableLoudnessRange(compressPeaks);
+			// Clamp the displayed value only. Changing songs or turning compression
+			// off must never silently lower the user's saved global loudness target.
+			const int displayedTarget = std::clamp(lufsTargetTenths, loudnessRange.minimumTenths, loudnessRange.maximumTenths);
+			float target = displayedTarget / 10.0f;
 			bool targetSaved = false;
-			const bool targetSlid = SliderRow("Target level", &target, -30.0f, -12.0f, "%.1f dBFS RMS", &targetSaved,
-				"Start at -20 dBFS RMS. Lower is quieter. Accounts for the song's embedded volume using a common -12 dB soundbank reference. Measures each song once and uses one correction across the song. Without Song boost, peaks limit how far a quiet song can be raised. Use Song boost below for more volume with peak limiting.");
-			if (targetSlid) targetTenths = static_cast<int>(std::lround(target * 10.0f));
-			float boost = boostTenths / 10.0f;
-			bool boostSaved = false;
-			const bool boostSlid = SliderRow("Song boost", &boost, 0.0f, 10.0f, "+%.1f dB", &boostSaved,
-				"Extra backing-track volume after normalization. Above 0 dB, a song-only limiter automatically reduces peaks to stay below -1 dBFS. Higher boosts compress the song's dynamics. Guitar and effects are unchanged; no added playback latency.");
-			if (boostSlid) boostTenths = static_cast<int>(std::lround(boost * 10.0f));
+			ImGui::BeginDisabled(!loudnessRange.adjustable);
+			const bool targetSlid = SliderRow("Song loudness", &target, loudnessRange.minimumTenths / 10.0f, loudnessRange.maximumTenths / 10.0f,
+				"%.1f LUFS", &targetSaved, "Move right for louder backing tracks. With compression off, the slider stops at this song's usable limits. Allow peak compression to unlock the wider range. The setting applies to every song.");
 			ImGui::EndDisabled();
-			if (levelingChanged || targetSlid || targetSaved || boostSlid || boostSaved)
+			if (targetSlid) lufsTargetTenths = static_cast<int>(std::lround(target * 10.0f));
+			if (!loudnessRange.adjustable)
+				Caption("This song has no usable range without compression. Turn on Allow peak compression below.");
+			else if (lufsTargetTenths > loudnessRange.maximumTenths)
+				Caption("Showing this song's reachable level. Your louder setting is saved; turn on peak compression to use it.");
+			else if (lufsTargetTenths < loudnessRange.minimumTenths)
+				Caption("Showing this song's quietest reachable level. Your quieter setting is saved.");
+			else if (!compressPeaks && loudnessRange.measured)
+				Caption("Move right for louder music, up to this song's peak limit. The setting applies to all songs.");
+			else if (!compressPeaks)
+				Caption("The usable range will appear after this song is measured. Your setting applies to all songs.");
+			else
+				Caption("Move right for louder backing tracks. Applies to every song; your guitar stays unchanged.");
+			const bool compressionChanged = ToggleRow("Allow peak compression", compressPeaks
+				? "On: reduces brief loud peaks when needed so songs can reach your chosen loudness. High settings may sound less dynamic."
+				: "Off: preserves the music's dynamics. The loudness slider shows this song's usable range.", &compressPeaks);
+			ImGui::EndDisabled();
+			if (levelingChanged || compressionChanged || targetSlid || targetSaved)
 			{
-				wchar_t command[48]; swprintf_s(command, L"%d,%d,%d", levelingOn ? 1 : 0, targetTenths, boostTenths);
-				if (levelingChanged || targetSaved || boostSaved) BridgeControl(31, command); else PreviewControl(31, command);
+				wchar_t command[48]; swprintf_s(command, L"L,%d,%d,%d", levelingOn ? 1 : 0, lufsTargetTenths, compressPeaks ? 1 : 0);
+				if (levelingChanged || compressionChanged || targetSaved) BridgeControl(31, command); else PreviewControl(31, command);
 			}
 			Caption(Audio::SongVolume::Status().c_str());
 			EndCard();

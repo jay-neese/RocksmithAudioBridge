@@ -365,6 +365,9 @@ void Settings::Initialize()
 		{"SongVolumeNormalize", 0},
 		{"SongVolumeTarget", -200},
 		{"SongVolumeBoost", 0},
+		{"SongVolumeMode", 0},
+		{"SongVolumeLufsTarget", -290},
+		{"SongVolumePeakCompression", 0},
 		{"CustomStringColors", 0},
 		{"AlternativeOutputSampleRate", 48000},
 		{"LoopingLeadUp", 0},
@@ -510,6 +513,9 @@ void Settings::ReadModSettings() {
 		{"SongVolumeNormalize", reader.GetLongValue("Mod Settings", "SongVolumeNormalize", 0)},
 		{"SongVolumeTarget", reader.GetLongValue("Mod Settings", "SongVolumeTarget", -200)},
 		{"SongVolumeBoost", reader.GetLongValue("Mod Settings", "SongVolumeBoost", 0)},
+		{"SongVolumeMode", reader.GetLongValue("Mod Settings", "SongVolumeMode", 0)},
+		{"SongVolumeLufsTarget", reader.GetLongValue("Mod Settings", "SongVolumeLufsTarget", reader.GetLongValue("Mod Settings", "SongVolumeTarget", -200) - 90)},
+		{"SongVolumePeakCompression", reader.GetLongValue("Mod Settings", "SongVolumePeakCompression", reader.GetLongValue("Mod Settings", "SongVolumeBoost", 0) > 0 ? 1 : 0)},
 		{"AudioBridgeLoudnessMatch", reader.GetLongValue("Mod Settings", "AudioBridgeLoudnessMatch", 0)}, // legacy whole-mix AGC (retired)
 		{"AudioBridgeLoudnessTarget", reader.GetLongValue("Mod Settings", "AudioBridgeLoudnessTarget", -200)}, // AGC target loudness in tenths of a dBFS RMS (-200 = -20.0 dBFS)
 		{"AlternativeOutputSampleRate", reader.GetLongValue("Mod Settings", "AlternativeOutputSampleRate", 48000)},

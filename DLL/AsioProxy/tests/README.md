@@ -30,3 +30,37 @@ csc /nologo /out:build/leveling-tests/SongLevelAnalysisTests.exe GUI/Features/Au
 They cover known RMS/peak values, silence gating, quiet passages, stream metadata,
 silent files, and truncated WAV rejection. Full extraction and decoder-hook
 compatibility still require game testing, especially CDLC and Speaker Mode.
+
+The optional library-audit loudness measurement has independent calibration,
+gain scaling, stereo weighting, and silence-gating checks at 44.1/48 kHz:
+
+```powershell
+csc /nologo /optimize+ /out:build/leveling-tests/SongLoudnessAuditTests.exe GUI/Features/AudioBridge/SongLoudnessAudit.cs DLL/AsioProxy/tests/SongLoudnessAuditTests.cs
+& ./build/leveling-tests/SongLoudnessAuditTests.exe build/song-audit-tests
+```
+
+`SongVolumeModeTests` verifies matching across RMS/LUFS modes, authored gain,
+peak and gain bounds, mode/target atomic snapshots, legacy and current control
+commands, strict version 3 profile parsing, and smooth A/B switching at 44.1/48 kHz.
+It also covers the simplified `L,on,target,compression` command, migration from
+legacy boost/RMS settings without repeated gain addition, the user's blink-182
+peak-limit case, and no gain change from allowing compression when peaks do not
+need reducing. The overlay no longer exposes the legacy mode selector or boost.
+Adaptive-range checks cover the measured ceilings for Interstate Love Song and
+blink-182, preserving a global target when the displayed value is limited,
+unavailable measurements, and impossible intervals. The optional real-cache
+pass checks that every displayed 0.1 LUFS step strictly increases gain with
+compression off on every successfully measured track.
+The cross-language measurement protocol also has a standalone C# check:
+
+```powershell
+csc /nologo /optimize+ /out:build/leveling-tests/SongVolumeMeasurementTests.exe GUI/Features/AudioBridge/SongVolumeMeasurement.cs DLL/AsioProxy/tests/SongVolumeMeasurementTests.cs
+& ./build/leveling-tests/SongVolumeMeasurementTests.exe
+```
+
+To check native parsing and RMS/LUFS headroom calculations on real version 3
+profiles after audit import, pass the cache directory to the mode test:
+
+```powershell
+& ./build/leveling-tests-cmake/Release/SongVolumeModeTests.exe "$env:LOCALAPPDATA\Rocksmith Audio Bridge\SongVolume"
+```

@@ -65,6 +65,11 @@ namespace RSMods
 		[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
 		private static void Run(string[] arguments)
 		{
+			if (Audio.SongVolumeLibraryAudit.TryRun(arguments, out int auditExitCode))
+			{
+				Environment.ExitCode = auditExitCode;
+				return;
+			}
 			// Hidden video take for the in-game overlay and record hotkey (no window, exits when the take ends).
 			if (Audio.SongVolumeAnalyzer.TryRun(arguments, out int songVolumeExitCode))
 			{
@@ -154,6 +159,7 @@ namespace RSMods
 				case "--ml-service":
 				case "--speaker-cache-extract":
 				case Audio.SongVolumeAnalyzer.Command:
+				case Audio.SongVolumeLibraryAudit.Command:
 				case "--install-note-by-note-menu":
 				case "--uninstall-note-by-note-menu":
 				case Audio.AsioProxySetup.InstallArgument:

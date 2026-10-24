@@ -25,6 +25,15 @@ namespace RSMods
 
         private static string CreateDefaultOnOldINI(string settingIdentifier, string @default) => ReadSettings.DoesSettingsINIExist() && ReadSettings.ProcessSettings(settingIdentifier) != String.Empty ? ReadSettings.ProcessSettings(settingIdentifier) : @default;
 
+        private static string DefaultSongLufsTarget()
+        {
+            if (!ReadSettings.DoesSettingsINIExist() || ReadSettings.ProcessSettings(ReadSettings.SongVolumeTargetIdentifier) == String.Empty) return "-210";
+            string existing = CreateDefaultOnOldINI(ReadSettings.SongVolumeTargetIdentifier, "-200");
+            if (!int.TryParse(existing, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int rms)) rms = -200;
+            rms = Math.Max(-300, Math.Min(-120, rms));
+            return Math.Max(-360, Math.Min(-140, rms - 90)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
 
         public static void LoadSettingsFromINI()
         {
@@ -244,7 +253,11 @@ namespace RSMods
                     { ReadSettings.AudioBridgeLoudnessTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.AudioBridgeLoudnessTargetIdentifier, "-200") }, // Leveling target in tenths of a dBFS RMS (-200 = -20 dBFS).
                     { ReadSettings.SongVolumeNormalizeIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeNormalizeIdentifier, "0") }, // Per-song backing-track normalization.
                     { ReadSettings.SongVolumeTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeTargetIdentifier, "-200") }, // Gated RMS target, tenths of a dBFS.
-                    { ReadSettings.SongVolumeBoostIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeBoostIdentifier, "0") }, // Extra song gain, tenths of a dB (0..100), with automatic song-only peak limiting.
+                    { ReadSettings.SongVolumeBoostIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeBoostIdentifier, "0") }, // Legacy boost; runtime folds this into LUFS target and clears it on save.
+                    { ReadSettings.SongVolumeModeIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeModeIdentifier, "1") }, // Legacy compatibility; simplified UI uses LUFS.
+                    { ReadSettings.SongVolumeLufsTargetIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumeLufsTargetIdentifier, DefaultSongLufsTarget()) }, // Unified loudness target, tenths of LUFS (-360..-40).
+                    { ReadSettings.SongVolumePeakCompressionIdentifier, CreateDefaultOnOldINI(ReadSettings.SongVolumePeakCompressionIdentifier,
+                        int.TryParse(CreateDefaultOnOldINI(ReadSettings.SongVolumeBoostIdentifier, "0"), out int oldSongBoost) && oldSongBoost > 0 ? "1" : "0") }, // Peak compression permission, independent of loudness.
                     { ReadSettings.AlternativeOutputSampleRateIdentifier, CreateDefaultOnOldINI(ReadSettings.AlternativeOutputSampleRateIdentifier, "48000") }, // Alternative frequency to use when looking for Audio Output devices.
                     { ReadSettings.LoopingLeadUpIdentifier, CreateDefaultOnOldINI(ReadSettings.LoopingLeadUpIdentifier, "0") }, // Amount of lead-up time we should give for loops.
                     { ReadSettings.RewindByIdentifier, CreateDefaultOnOldINI(ReadSettings.RewindByIdentifier, "5000") }, // Amount of time (in ms) to go back when the user presses the rewind key.

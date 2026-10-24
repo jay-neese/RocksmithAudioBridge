@@ -243,58 +243,142 @@ Levels reset when the game closes.
 
 **Overlay page:** Mixer.
 
-Open the in-game overlay with **\\**, then choose **Output > Song volume >
-Normalize song volume**. Start with the default **-20 dBFS RMS** target.
-Backing tracks get individual corrections toward that target. Guitar, effects,
-voice and note detection remain independent. Set the Song fader to a comfortable
-backing-track volume once; normalization compensates for differences between
-recordings underneath that setting. Lower target values give quieter songs.
-The correction includes the backing track's authored soundbank volume, which
-Rocksmith applies after decoding. Targets use a common -12 dB soundbank reference
-(for example, a -14 dBFS RMS target corresponds to -26 dBFS RMS after the bank,
-before the game's other mixer gains). This avoids making tracks with louder
-soundbank settings louder after normalization. The overlay reports the bank
-volume alongside the correction. Existing settings are preserved; some songs
-will be quieter than with the earlier decoder-only normalization.
+Open the in-game overlay with **\\**, then choose **Output > Song volume**.
+Enable **Normalize song volume** to keep backing tracks at similar loudness as
+you move between songs. Guitar, voice, effects and note detection stay independent.
+Set the Mixer Song fader once to balance backing tracks against your guitar.
 
-The first encounter with a track starts a background analysis. Playback stays at
-its original level until the overlay says analysis is ready; a short gain ramp
-then applies the correction without a sudden jump. Subsequent encounters reuse
-the measurement. A song gets one constant correction, preserving its intentional
-quiet and loud passages. There is no added playback latency. Analysis uses
-silence-gated RMS, not LUFS, so equal measured levels may still sound different.
-Boost is limited to 12 dB and the decoded song's sample peaks are kept below
--1 dBFS; some quiet, transient-heavy tracks cannot reach the target. The largest
-attenuation is 24 dB. Pitch-shifted audio can have different peaks.
+There are two controls:
 
-The analyzer reuses Speaker Mode's WEM extractor but normalization also works
-with Speaker Mode and Drop Pedal off. It matches the selected song by decoded
-duration and sample rate, applies only during gameplay (not menu previews), and
-bypasses unsupported or failed analyses. An updated song archive invalidates its
-cached measurement. Measurements live in
-`%LOCALAPPDATA%\Rocksmith Audio Bridge\SongVolume`; decoded WAVs are temporary.
-The bank-aware analysis uses a new cache version, so tracks are remeasured once
-after updating. Bank volumes from -96 to +24 dB are supported, including the
-positive gain used by "No Sleep Till Brooklyn". For positive bank gain, both
-static peak protection and the live limiter reserve extra decoder headroom so
-the later bank gain keeps sample peaks below -1 dBFS. Unreadable or unsupported
-bank volumes bypass normalization rather than guessing a correction. Peak and
-gain limits can still prevent unusually quiet tracks from reaching the target.
-Existing whole-mix leveling is retired and no longer applied at startup.
-The independent **Output > Volume cap > Cap the maximum volume** limiter still
-controls final-output peaks, with its existing look-ahead latency.
+- **Song loudness:** move right for louder backing tracks. It applies to every
+  song. The readout uses LUFS, but you can adjust by ear. Start around -21 LUFS
+  and raise it gradually to suit your guitar. With compression allowed the range
+  is -36 to -4 LUFS. With compression off, it adapts to the current song's
+  reachable peak/gain limits, removing sections where moving it would have no
+  effect. For example, Interstate Love Song stops around -20.6 LUFS without
+  compression. Each displayed 0.1 LUFS step in that usable range changes gain.
+- **Allow peak compression:** off preserves dynamics and may leave songs below
+  the chosen loudness. On reduces loud peaks as needed so songs can get louder
+  toward that setting. It does not add a fixed number of decibels. High loudness
+  settings can sound less dynamic.
 
-If normalized songs are still too quiet with the Song fader at 100, increase
-**Song boost** (0 to +10 dB) in the same **Output > Song volume** card. Start at
-+3 dB. This is extra gain relative to the normalized level, not a positive dBFS
-target. Above 0 dB, a stereo-linked limiter automatically controls the backing
-track's sample peaks at -1 dBFS. It replaces the static peak restriction while
-boost is active, allowing more average volume by compressing song peaks. The
-status line shows the boost and current limiter gain reduction. Your guitar,
-voice and effects remain independent. The limiter adds no look-ahead delay.
-At large boosts, audible dynamics change and the achieved volume increase varies
-by recording. Setting Song boost to 0 restores the original normalization mode.
-Boost is off by default and is saved with the other song-volume settings.
+If raising Song loudness stops changing a track's volume, the status says it is
+at its peak limit and suggests turning on Allow peak compression. The status
+also reports when the limiter is actively reducing peaks or when a gain bound
+prevents reaching the chosen loudness. The technical gain calculation and bank
+volume are kept in the debug log rather than the main controls.
+When the current song cannot reach a previously chosen global setting, the
+slider displays the reachable level and says that the original setting is
+saved. Changing songs or turning compression off never silently overwrites
+that saved setting. Allow compression to use the wider range, or drag the
+slider to choose a new global value. At very high settings, the compressor's
+output ceiling still limits how much additional average volume is possible.
+
+The RMS/LUFS selector and Song boost slider have been removed. The overlay uses
+LUFS. Both the loudness setting and compression permission persist across songs
+and restarts; these are not per-song adjustments.
+
+### Upgrading saved settings
+
+Existing LUFS targets are retained. A former boost is folded into the loudness
+setting and turns compression permission on: for example, **-14 LUFS plus +2 dB
+boost becomes -12 LUFS with compression allowed**. The expanded slider covers
+the former LUFS-target-plus-boost range. Legacy RMS settings are translated to an
+approximately comparable LUFS target (RMS target minus 9 dB). Legacy keys and RMS
+calculations remain readable internally for compatibility and validation.
+Migration is idempotent; saving the new controls clears legacy boost and selects
+LUFS, so restarting does not add the old boost again.
+
+`SongVolumeLufsTarget` stores the single target in tenths of LUFS.
+`SongVolumePeakCompression` stores compression permission (0 or 1).
+Compression defaults off unless it was enabled explicitly or a saved legacy
+boost was positive. A fresh installation starts around -21 LUFS with compression
+off. Install the matching game DLL and analyzer together.
+
+### How song leveling works
+
+Each supported song gets one fixed correction based on its measured integrated
+loudness and authored soundbank volume. Quiet and loud passages within a song
+remain distinct, except where peak compression intervenes. A short gain ramp
+handles setting changes without an abrupt jump. There is no added playback
+latency. The limiter has immediate attack and 80 ms release, and only processes
+backing-track audio.
+
+The first encounter starts background analysis; original volume plays until it
+is ready. Subsequent encounters reuse the cache in
+`%LOCALAPPDATA%\Rocksmith Audio Bridge\SongVolume`. Cache version 3 stores RMS,
+peak, bank volume and LUFS. Matching library-audit results can populate it without
+another decode. An updated song archive invalidates the measurement. Temporary
+WAVs are removed after analysis.
+
+The analyzer reuses Speaker Mode's WEM extractor but works with Speaker Mode and
+Drop Pedal off. It matches gameplay audio by decoded sample rate and duration,
+excluding menu previews, and bypasses failed or unsupported analyses. Bank gain
+from -96 to +24 dB is supported. Positive bank gain gets additional decoder
+headroom so it does not undo peak protection later in Wwise.
+
+Requested gain is bounded to +22 dB (the former +12 dB normalization gain plus
++10 dB boost). With compression off, measured sample peaks further limit the
+fixed gain. With it on, a stereo-linked limiter controls peaks before conversion
+instead, allowing more average volume toward the same target.
+Both paths bound requested attenuation to -24 dB; peak protection may require
+more attenuation. True peaks are not oversampled, and pitch shifting can change
+peaks and loudness. Compression cannot guarantee the exact target on every track.
+
+LUFS measurement uses BS.1770-style stereo K weighting, 400 ms blocks with 75%
+overlap, a -70 LUFS absolute gate, and -10 LU relative gate. Synthetic calibration
+and cache checks support it; this is not a certified loudness meter. In-game
+listening is still needed to assess guitar balance.
+
+Debug logging records measured LUFS, matched playback, requested gain,
+`compressionAllowed`, and `peakReductionDb`. While compression is allowed,
+matched playback reports current limiter reduction about every five seconds.
+Requested gain is not a measurement of achieved loudness after limiting.
+The independent **Output > Volume cap** controls final-output peaks with its
+existing look-ahead latency. Retired whole-mix leveling remains disabled.
+
+### Audit or pre-analyze a whole song library
+
+The hidden helper command below scans full-song banks in `dlc/**/*_p.psarc`
+and `songs.psarc`, excludes menu previews, and warms the combined RMS/LUFS measurement
+cache used in game. It does not change settings or song archives. Up to four
+workers decode temporary WAVs; allow disk space for several decoded songs.
+
+```powershell
+& .\RSMods.exe --song-volume-audit 'C:\path\to\Rocksmith' 'C:\path\to\audit-output'
+```
+
+Use the installed `RSMods\RSMods.exe`, or a freshly built copy in
+`Installer\Resources\RSModsGUI`. Because this is a GUI executable, use
+`Start-Process -Wait` from PowerShell when waiting for completion in a script.
+`progress.txt` reports progress; `songs.jsonl` records each result. Rerunning with
+the same output directory reuses completed audit results for unchanged source
+archives and retries failures. Different archive versions are separate results;
+use a new output directory for a clean inventory after library changes.
+Unreadable archive directories and unsupported bank layouts are reported as
+coverage gaps. Readable packages containing no audio or soundbanks (such as
+compatibility metadata) are reported separately, not as song failures. They are
+never counted as analyzed songs. Cache bank names are case-independent. Rerunning
+a completed audit seeds version 3 measurements from its source-validated rows
+without decoding the tracks again. Older RMS-only caches need a matching audit
+or a one-time decode to add LUFS. Ambiguous WEM byte
+matches are resolved with the soundbank parser's source ID when available.
+
+The additional LUFS-style audit measures stereo K-weighted integrated loudness
+with overlapping gates and 3-second short-term percentiles. It is diagnostic,
+not a change to the RMS normalization algorithm or a certified loudness meter.
+It does not measure oversampled true peaks or live decoder-hook matching.
+With Python installed, generate a CSV and Markdown report from the repository:
+
+```powershell
+python scripts/report_song_volume_audit.py 'C:\path\to\audit-output' --target -12
+```
+
+The report models the historical RMS baseline and LUFS with compression off,
+highlights peak/gain limits, and compares loudness distributions at the same
+median level. It does not simulate the live compressor or predict achieved
+loudness with compression on. A report produced during scanning is partial; rerun
+the Python command after `progress.txt` says `Complete.` for final coverage.
 
 ## Guitar input cleanup
 

@@ -36,6 +36,43 @@ namespace Audio::SongVolume
 
 	inline float BoostGain(int tenths) { return std::pow(10.0f, std::clamp(tenths, 0, 100) / 200.0f); }
 
+	inline bool ValidLoudness(float lufs) { return std::isfinite(lufs) && lufs >= -70 && lufs <= 12; }
+	inline float CalculateLufsGain(float lufs, float peak, int targetTenths, bool preservePeakHeadroom, float bankDb, float maxBoostDb = 12.0f)
+	{
+		if (!ValidLoudness(lufs) || !std::isfinite(peak) || peak <= 0 || peak > 1 || !ValidBankVolume(bankDb)) return 1;
+		// LUFS target describes the backing track AFTER authored bank gain, before
+		// the user's Song fader. No RMS reference-bank offset here.
+		const float correctionDb = std::clamp(targetTenths, -360, -40) / 10.0f - lufs - bankDb;
+		const float gain = std::pow(10.0f, std::clamp(correctionDb, -24.0f, std::clamp(maxBoostDb, 12.0f, 22.0f)) / 20.0f);
+		return preservePeakHeadroom ? std::min(gain, 0.891250938f * BankHeadroom(bankDb) / peak) : gain;
+	}
+
+	struct LoudnessRange
+	{
+		int minimumTenths = -360, maximumTenths = -40;
+		bool measured = false, adjustable = true;
+	};
+
+	inline LoudnessRange CalculateLoudnessRange(float lufs, float peak, float bankDb, bool allowCompression)
+	{
+		LoudnessRange range;
+		if (!ValidLoudness(lufs) || !std::isfinite(peak) || peak <= 0 || peak > 1 || !ValidBankVolume(bankDb)) return range;
+		range.measured = true;
+		if (allowCompression) return range;
+		const float peakGain = 0.891250938f * BankHeadroom(bankDb) / peak;
+		const float minimumGain = std::min(0.063095734f, peakGain);
+		const float maximumGain = std::min(std::pow(10.0f, 22.0f / 20.0f), peakGain);
+		const float minimum = lufs + bankDb + 20.0f * std::log10(minimumGain);
+		const float maximum = lufs + bankDb + 20.0f * std::log10(maximumGain);
+		// Round inward to the same 0.1 LUFS steps as the control so its endpoints
+		// do not ask for gain outside the reachable, peak-preserving interval.
+		range.minimumTenths = std::clamp(static_cast<int>(std::ceil(minimum * 10.0f)), -360, -40);
+		range.maximumTenths = std::clamp(static_cast<int>(std::floor(maximum * 10.0f)), -360, -40);
+		range.adjustable = maximum >= -36.0f && minimum <= -4.0f && range.minimumTenths < range.maximumTenths;
+		if (!range.adjustable) range.maximumTenths = range.minimumTenths;
+		return range;
+	}
+
 	struct ProcessingState
 	{
 		float gain = 1.0f;

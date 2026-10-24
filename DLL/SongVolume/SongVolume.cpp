@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "SongVolume.hpp"
 #include "SongVolumeDsp.hpp"
+#include "SongVolumeMeasurement.hpp"
 #include "GameState.hpp"
 #include <atomic>
 #include <filesystem>
@@ -14,23 +15,26 @@ namespace Audio::SongVolume
 	namespace
 	{
 		std::once_flag initialized;
-		std::atomic<bool> enabled{ false }, playing{ false };
+		std::atomic<bool> playing{ false };
 		std::atomic<bool> matchedPlayback{ false };
-		std::atomic<int> target{ -200 };
-		std::atomic<int> boost{ 0 };
+		std::atomic<uint32_t> configuration{ Configuration{}.Pack() };
 		std::atomic<float> peakReductionDb{ 0 };
 		// Seqlock snapshot: audio never waits or takes a mutex if publication is in progress.
 		std::atomic<unsigned> revision{ 0 }, rate{ 0 };
 		std::atomic<uint64_t> length{ 0 };
-		std::atomic<float> songRms{ 0 }, songPeak{ 0 }, songBankDb{ ReferenceBankDb };
+		std::atomic<float> songRms{ 0 }, songPeak{ 0 }, songBankDb{ ReferenceBankDb }, songLufs{ 0 };
+		Configuration ReadConfiguration() { return Configuration::Unpack(configuration.load()); }
 		std::filesystem::path gameDirectory, scratch, resultPath, errorPath;
 		std::string selectedSong;
 		std::mutex statusMutex;
-		std::string status = "Select a song to measure its backing track.";
+		std::string status = "Choose a song to prepare automatic volume.";
 		HANDLE helper = nullptr, helperJob = nullptr;
 		ULONGLONG helperStarted = 0;
 		unsigned requestNumber = 0;
 		bool wasEnabled = false;
+		uint32_t reportedConfiguration = UINT32_MAX;
+		unsigned reportedRevision = UINT32_MAX;
+		ULONGLONG reportedAt = 0;
 		std::vector<std::filesystem::path> cleanupDirectories;
 
 		void CleanTemporaryDirectories()
@@ -58,17 +62,26 @@ namespace Audio::SongVolume
 				GetModuleFileNameW(nullptr, executable, MAX_PATH);
 				gameDirectory = std::filesystem::path(executable).parent_path();
 				const auto ini = gameDirectory / L"RSMods.ini";
-				enabled.store(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeNormalize", 0, ini.c_str()) != 0);
-				target.store(std::clamp(static_cast<int>(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeTarget", -200, ini.c_str())), -300, -120));
-				boost.store(std::clamp(static_cast<int>(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeBoost", 0, ini.c_str())), 0, 100));
+				wchar_t previousRms[32]{};
+				const bool hadRmsSetting = GetPrivateProfileStringW(L"Mod Settings", L"SongVolumeTarget", L"", previousRms, 32, ini.c_str()) != 0;
+				Configuration settings;
+				settings.enabled = GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeNormalize", 0, ini.c_str()) != 0;
+				settings.rmsTarget = static_cast<int>(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeTarget", -200, ini.c_str()));
+				settings.boost = static_cast<int>(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeBoost", 0, ini.c_str()));
+				settings.mode = GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeMode", hadRmsSetting ? 0 : 1, ini.c_str()) == 1 ? 1 : 0;
+				settings.lufsTarget = static_cast<int>(GetPrivateProfileIntW(L"Mod Settings", L"SongVolumeLufsTarget",
+					hadRmsSetting ? DefaultLufsTarget(std::clamp(settings.rmsTarget, -300, -120)) : -210, ini.c_str()));
+				settings.compressPeaks = GetPrivateProfileIntW(L"Mod Settings", L"SongVolumePeakCompression", settings.boost > 0 ? 1 : 0, ini.c_str()) != 0;
+				configuration.store(SimplifyConfiguration(settings).Pack());
 			});
 		}
 
-		void Publish(unsigned sampleRate = 0, uint64_t frames = 0, float rms = 0, float peak = 0, float bankDb = ReferenceBankDb)
+		void Publish(unsigned sampleRate = 0, uint64_t frames = 0, float rms = 0, float peak = 0, float bankDb = ReferenceBankDb, float lufs = 0)
 		{
 			revision.fetch_add(1);
 			rate.store(sampleRate); length.store(frames); songRms.store(rms); songPeak.store(peak);
 			songBankDb.store(bankDb);
+			songLufs.store(lufs);
 			matchedPlayback.store(false);
 			peakReductionDb.store(0);
 			revision.fetch_add(1);
@@ -139,34 +152,48 @@ namespace Audio::SongVolume
 			CloseHandle(process.hThread);
 			if (!resumed) throw std::runtime_error("Could not attach/start the analyzer for the game lifetime.");
 			helperStarted = GetTickCount64();
-			SetStatus("Analyzing backing track; original song level until ready...");
+			SetStatus("Measuring this song. Playing its original volume until ready...");
 		}
 	}
 
-	void Configure(bool on, int tenths, int boostTenths)
+	void Configure(const Configuration& settings)
 	{
-		Initialize(); target.store(std::clamp(tenths, -300, -120)); boost.store(std::clamp(boostTenths, 0, 100)); enabled.store(on);
+		Initialize(); configuration.store(SimplifyConfiguration(settings).Pack());
 	}
-	bool Enabled() { Initialize(); return enabled.load(); }
-	int TargetTenths() { Initialize(); return target.load(); }
-	int BoostTenths() { Initialize(); return boost.load(); }
+	bool Enabled() { Initialize(); return ReadConfiguration().enabled; }
+	int TargetTenths() { Initialize(); return ReadConfiguration().rmsTarget; }
+	int BoostTenths() { Initialize(); return ReadConfiguration().boost; }
+	int Mode() { Initialize(); return ReadConfiguration().mode; }
+	int LufsTargetTenths() { Initialize(); return ReadConfiguration().lufsTarget; }
+	bool PeakCompression() { Initialize(); return ReadConfiguration().compressPeaks; }
+	LoudnessRange AvailableLoudnessRange(bool allowCompression)
+	{
+		const unsigned before = revision.load();
+		const auto sampleRate = rate.load();
+		const float lufs = songLufs.load(), peak = songPeak.load(), bankDb = songBankDb.load();
+		if ((before & 1) || before != revision.load() || sampleRate == 0) return {};
+		return CalculateLoudnessRange(lufs, peak, bankDb, allowCompression);
+	}
+	Configuration CurrentConfiguration() { Initialize(); return ReadConfiguration(); }
 	std::string Status()
 	{
-		if (enabled.load() && rate.load() != 0)
+		const auto settings = ReadConfiguration();
+		if (!settings.enabled) return "Off. Songs play at their original volume.";
+		if (settings.enabled && rate.load() != 0)
 		{
-			if (!matchedPlayback.load()) return "Analysis ready; waiting for matching backing-track playback.";
+			if (!matchedPlayback.load()) return "Ready. Play or resume this song to apply automatic volume.";
 			const float rms = songRms.load(), peak = songPeak.load(), bankDb = songBankDb.load();
-			const int boostValue = boost.load();
-			const float gain = CalculateGain(rms, peak, target.load(), boostValue == 0, bankDb);
-			std::ostringstream text; text.imbue(std::locale::classic()); text.setf(std::ios::fixed); text.precision(1);
-			text << "Backing-track correction: " << (gain >= 1 ? "+" : "") << 20.0f * std::log10(gain) << " dB. ";
-			text << "Soundbank volume: " << bankDb << " dB (accounted for). ";
-			const float desired = std::pow(10.0f, target.load() / 200.0f);
-			if (boostValue > 0)
-				text << "Song boost: +" << boostValue / 10.0f << " dB. Song limiter reduction: " << peakReductionDb.load() << " dB.";
-			else text << (rms * gain * std::pow(10.0f, (bankDb - ReferenceBankDb) / 20.0f) < desired * 0.99f
-				? "Target limited by peak protection or gain bounds." : "Song dynamics and guitar level unchanged.");
-			return text.str();
+			const float lufs = songLufs.load();
+			const float gain = NormalizedGain(settings, rms, peak, bankDb, lufs);
+			const float unrestricted = CalculateLufsGain(lufs, peak, settings.lufsTarget, false, bankDb, 22.0f);
+			if (!settings.compressPeaks && unrestricted > gain * 1.01f)
+				return "This song is at its peak limit. Turn on Allow peak compression to make it louder.";
+			const float difference = lufs + bankDb + 20.0f * std::log10(gain) - settings.lufsTarget / 10.0f;
+			if (std::abs(difference) > 0.1f)
+				return "At the adjustment limit. This song may not fully match your chosen loudness.";
+			if (settings.compressPeaks && peakReductionDb.load() > 0.1f)
+				return "Reducing loud peaks to help this song reach your chosen loudness. Your guitar is unchanged.";
+			return "Leveling active. Your guitar volume is unchanged.";
 		}
 		std::lock_guard<std::mutex> lock(statusMutex);
 		return status;
@@ -177,39 +204,60 @@ namespace Audio::SongVolume
 		Initialize();
 		CleanTemporaryDirectories();
 		playing.store(GameState::IsInSong());
-		const bool on = enabled.load();
+		if (!playing.load()) { matchedPlayback.store(false); reportedRevision = UINT32_MAX; }
+		const bool on = ReadConfiguration().enabled;
 		const auto key = on ? GameState::GetSongKey() : std::string();
 		if (key != selectedSong || on != wasEnabled)
 		{
 			StopHelper(); Publish(); selectedSong = key; wasEnabled = on;
-			SetStatus(on ? "Select a song to measure its backing track." : "Off. Song audio is unchanged.");
+			SetStatus(on ? "Choose a song to prepare automatic volume." : "Off. Songs play at their original volume.");
 			if (!key.empty())
 			{
 				try { StartHelper(key); }
-				catch (const std::exception& error) { StopHelper(); SetStatus(std::string("Original song level: ") + error.what()); }
+				catch (const std::exception& error)
+				{
+					StopHelper(); SetStatus("Couldn't prepare song leveling. Playing at the original volume.");
+					LOG_ERROR("(SONG VOLUME) Could not start analysis for " << key << ": " << error.what() << std::endl);
+				}
 			}
+		}
+		const auto settings = ReadConfiguration();
+		const unsigned currentRevision = revision.load();
+		const ULONGLONG now = GetTickCount64();
+		if (settings.enabled && playing.load() && matchedPlayback.load() && rate.load() != 0
+			&& (reportedRevision != currentRevision || reportedConfiguration != settings.Pack()
+				|| (settings.compressPeaks && now - reportedAt >= 5000)))
+		{
+			reportedRevision = currentRevision; reportedConfiguration = settings.Pack();
+			reportedAt = now;
+			const float gain = NormalizedGain(settings, songRms.load(), songPeak.load(), songBankDb.load(), songLufs.load());
+			LOG_INFO("(SONG VOLUME) Matched " << selectedSong << ": mode=" << (settings.mode == 1 ? "LUFS" : "RMS")
+				<< " target=" << (settings.mode == 1 ? settings.lufsTarget : settings.rmsTarget) / 10.0f
+				<< " requestedGainDb=" << 20.0f * std::log10(gain) << " compressionAllowed=" << (settings.compressPeaks ? 1 : 0)
+				<< " peakReductionDb=" << peakReductionDb.load()
+				<< " bankDb=" << songBankDb.load() << " sourceLUFS=" << songLufs.load() << std::endl);
 		}
 		if (!helper) return;
 		const DWORD wait = WaitForSingleObject(helper, 0);
 		if (wait == WAIT_TIMEOUT && GetTickCount64() - helperStarted < 120000) return;
 		DWORD code = 1;
 		if (wait == WAIT_OBJECT_0) GetExitCodeProcess(helper, &code);
-		unsigned version = 0, sampleRate = 0; uint64_t frames = 0; float rms = 0, peak = 0, bankDb = 0;
+		Measurement measurement;
 		std::ifstream response(resultPath); response.imbue(std::locale::classic());
-		if (code == 0 && (response >> version >> sampleRate >> frames >> rms >> peak >> bankDb) && version == 2
-			&& (sampleRate == 44100 || sampleRate == 48000) && frames >= sampleRate * 20ULL
-			&& std::isfinite(rms) && std::isfinite(peak) && rms > 0 && peak >= rms && peak <= 1
-			&& ValidBankVolume(bankDb))
+		if (code == 0 && ReadMeasurement(response, measurement))
 		{
-			Publish(sampleRate, frames, rms, peak, bankDb);
-			SetStatus("Ready. One fixed correction per song; your guitar level is unchanged.");
-			LOG_INFO("(SONG VOLUME) Measured " << selectedSong << ": RMS=" << rms << " peak=" << peak << " bankDb=" << bankDb << std::endl);
+			Publish(measurement.rate, measurement.frames, measurement.rms, measurement.peak, measurement.bankDb, measurement.lufs);
+			SetStatus("Ready. Play or resume this song to apply automatic volume.");
+			LOG_INFO("(SONG VOLUME) Measured " << selectedSong << ": RMS=" << measurement.rms << " peak=" << measurement.peak
+				<< " bankDb=" << measurement.bankDb << " LUFS=" << measurement.lufs << std::endl);
 		}
 		else
 		{
-			SetStatus("Analysis unavailable; original song level. Disable and enable to retry. See RSMods_debug.txt.");
+			SetStatus(code == 0 ? "Song leveling is unavailable. Reinstall the current Audio Bridge build."
+				: "Couldn't measure this song. Playing it at its original volume.");
 			std::ifstream errors(errorPath);
 			std::string detail((std::istreambuf_iterator<char>(errors)), std::istreambuf_iterator<char>());
+			if (code == 0) detail = "Invalid measurement response; expected version 3 RMS and LUFS data.";
 			LOG_ERROR("(SONG VOLUME) Analysis failed for " << selectedSong << ": " << (wait == WAIT_TIMEOUT ? "timed out" : detail) << std::endl);
 		}
 		response.close();
@@ -221,21 +269,23 @@ namespace Audio::SongVolume
 		float wanted = 1;
 		float activeBankDb = ReferenceBankDb;
 		bool limitPeaks = false;
+		const auto settings = ReadConfiguration();
 		const unsigned before = revision.load();
 		const auto expectedFrames = length.load(); const auto expectedRate = rate.load();
-		const float rms = songRms.load(), peak = songPeak.load(), bankDb = songBankDb.load();
-		if (!(before & 1) && before == revision.load() && enabled.load() && playing.load()
+		const float rms = songRms.load(), peak = songPeak.load(), bankDb = songBankDb.load(), lufs = songLufs.load();
+		if (!(before & 1) && before == revision.load() && settings.enabled && playing.load()
 			&& MatchesSong(expectedRate, expectedFrames, sampleRate, totalFrames))
 		{
-			const int boostValue = boost.load();
+			const int boostValue = settings.boost;
 			// Positive bank gain needs live protection during the gain ramp as well
 			// as a lower static peak ceiling once the correction has settled.
-			limitPeaks = boostValue > 0 || bankDb > 0;
+			limitPeaks = settings.compressPeaks || boostValue > 0 || bankDb > 0;
 			activeBankDb = bankDb;
-			wanted = CalculateGain(rms, peak, target.load(), boostValue == 0, bankDb) * BoostGain(boostValue);
+			const float gain = NormalizedGain(settings, rms, peak, bankDb, lufs);
+			wanted = gain * BoostGain(boostValue);
 			matchedPlayback.store(true);
 		}
 		ApplySongGain(samples, frames, sampleRate, wanted, limitPeaks, state, activeBankDb);
-		if (limitPeaks) peakReductionDb.store(static_cast<float>(-20.0 * std::log10(std::max(0.000001, state.limiterGain))));
+		peakReductionDb.store(static_cast<float>(-20.0 * std::log10(std::max(0.000001, state.limiterGain))));
 	}
 }
