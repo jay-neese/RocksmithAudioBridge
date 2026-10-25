@@ -302,7 +302,6 @@ namespace RSMods
 
         private void Startup_VerifyGUIInstall()
         {
-            WriteSettings.IsVoid(GenUtil.GetRSDirectory());
             if (!File.Exists(Path.Combine(GenUtil.GetRSDirectory(), "RSMods.ini")))
                 WriteSettings.WriteINI(WriteSettings.saveSettingsOrDefaults); // Creates Settings File
 
