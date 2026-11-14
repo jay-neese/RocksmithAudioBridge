@@ -219,6 +219,7 @@
     <Compile Include="Features\AudioBridge\UI.BridgeSettingsSync.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Features\AudioBridge\UI.StartupSetup.cs" />
     <Compile Include="Features\AudioBridge\UI.AudioBridgeSetup.cs">
       <SubType>Form</SubType>
     </Compile>

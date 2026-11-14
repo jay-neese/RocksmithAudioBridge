@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Mods\Startup.cpp" />
     <ClCompile Include="Overlay\OverlayInputCapture.cpp" />
     <ClCompile Include="SongVolume\SongVolume.cpp" />
     <ClCompile Include="AudioBridge\Input\InputCaptureHook.cpp" />
@@ -319,7 +320,6 @@
     <ClInclude Include="Shared\ShellOpenAsync.hpp" />
     <ClInclude Include="Recorder\GameAudioRecorder.hpp" />
     <ClInclude Include="Recorder\DrySignalRecording.hpp" />
-    <ClInclude Include="AudioBridge\Input\HumRemover.hpp" />
     <ClInclude Include="NoteByNote\Detection\HfcOnsetDetector.hpp" />
     <ClInclude Include="Recorder\AudioPacketQueue.hpp" />
     <ClInclude Include="AudioBridge\Engine\AudioControl.hpp" />
@@ -450,11 +450,15 @@
     <ClInclude Include="RSColor.h" />
     <ClInclude Include="SongTimer.hpp" />
     <ClInclude Include="SongTuning.hpp" />
+    <ClInclude Include="Mods\Startup.hpp" />
+    <ClInclude Include="Mods\StartupPreferences.hpp" />
+    <ClInclude Include="Overlay\StartupPanel.hpp" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Tests.hpp" />
     <ClInclude Include="Tuning.h" />
     <ClInclude Include="Twitch.hpp" />
     <ClInclude Include="VersioningStruct.h" />
+    <ClInclude Include="GameAddress.hpp" />
     <ClInclude Include="VoiceOver.h" />
     <ClInclude Include="Wwise\Logging.hpp" />
     <ClInclude Include="Wwise\MemoryMgr.hpp" />

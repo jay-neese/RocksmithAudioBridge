@@ -430,7 +430,7 @@ namespace
 			return;
 		}
 
-		originalVorbisFileDecoderOutput = reinterpret_cast<tDecoderOutputRaw>(DetourFunction(
+		originalVorbisFileDecoderOutput = reinterpret_cast<tDecoderOutputRaw>(MemUtil::DetourFunction(
 			reinterpret_cast<PBYTE>(vtable[DECODER_OUTPUT_VTABLE_INDEX]),
 			reinterpret_cast<PBYTE>(SpyVorbisFileDecoderOutput)));
 
@@ -479,7 +479,7 @@ namespace
 			return;
 		}
 
-		auto* trampoline = DetourFunction(
+		auto* trampoline = MemUtil::DetourFunction(
 			reinterpret_cast<PBYTE>(fileFactory),
 			reinterpret_cast<PBYTE>(SpyVorbisFileFactory));
 
@@ -697,7 +697,7 @@ void Audio::SongShift::WwiseMusicHook::Install()
 		return;
 	}
 
-	originalRegisterCodec = reinterpret_cast<tRegisterCodec>(DetourFunction(
+	originalRegisterCodec = reinterpret_cast<tRegisterCodec>(MemUtil::DetourFunction(
 		reinterpret_cast<PBYTE>(target),
 		reinterpret_cast<PBYTE>(SpyRegisterCodec)));
 

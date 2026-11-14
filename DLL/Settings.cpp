@@ -291,6 +291,8 @@ void Settings::Initialize()
 		{"RemoveSkylineEnabled", "off"},
 		{"GreenScreenWallEnabled", "off"},
 		{"ForceProfileEnabled", "off"},
+		{"SkipOptionalUbisoftLogin", "off"},
+		{"OfflineStartup", "off"},
 		{"FretlessModeEnabled", "off"},
 		{"RemoveInlaysEnabled", "off"},
 		{"ToggleLoftWhen", "manual"},
@@ -355,7 +357,6 @@ void Settings::Initialize()
 		{"AsioInputGain", 0},
 		{"NoiseGateThreshold", 0},
 		{"CompressorStrength", 0},
-		{"HumFilter", 0},
 		{"RocksmithGateOverride", 0},
 		{"RocksmithGateThreshold", -593},
 		{"AudioBridgeLimiter", 0},
@@ -505,7 +506,6 @@ void Settings::ReadModSettings() {
 		{"AsioInputGain", reader.GetLongValue("Mod Settings", "AsioInputGain", 0)}, // tenths of a dB of guitar input make-up gain (0 = off)
 		{"NoiseGateThreshold", reader.GetLongValue("Mod Settings", "NoiseGateThreshold", 0)}, // guitar input suppressor open threshold in tenths of a dB (0 = off, else negative)
 		{"CompressorStrength", reader.GetLongValue("Mod Settings", "CompressorStrength", 0)}, // guitar input compressor strength, 0-100 (0 = off); flattens string-beat wobble before the game amp
-		{"HumFilter", reader.GetLongValue("Mod Settings", "HumFilter", 0)}, // mains-hum notch base frequency (0 = off, else 50 or 60); notches out the 50/60 Hz ground-loop hum comb on a grounded interface
 		{"RocksmithGateOverride", reader.GetLongValue("Mod Settings", "RocksmithGateOverride", 0)}, // 1 = take over the game's own amp noise gate (P1_NoiseFloor); 0 = leave the game's calibrated gate alone
 		{"RocksmithGateThreshold", reader.GetLongValue("Mod Settings", "RocksmithGateThreshold", -593)}, // forced P1_NoiseFloor in tenths of a dB while the override is on (-593 = game default; lower opens the gate for longer sustain)
 		{"AudioBridgeLimiter", reader.GetLongValue("Mod Settings", "AudioBridgeLimiter", 0)}, // output limiter / safety ceiling (0 = off, 1 = on)
@@ -557,6 +557,8 @@ void Settings::ReadModSettings() {
 	modSettings["RemoveSkylineEnabled"] = reader.GetValue("Toggle Switches", "Skyline", "off");
 	modSettings["GreenScreenWallEnabled"] = reader.GetValue("Toggle Switches", "GreenScreenWall", "off");
 	modSettings["ForceProfileEnabled"] = reader.GetValue("Toggle Switches", "ForceProfileLoad", "off");
+	modSettings["SkipOptionalUbisoftLogin"] = reader.GetValue("Startup", "SkipOptionalUbisoftLogin", "off");
+	modSettings["OfflineStartup"] = reader.GetValue("Startup", "OfflineStartup", "off");
 	modSettings["FretlessModeEnabled"] = reader.GetValue("Toggle Switches", "Fretless", "off");
 	modSettings["RemoveInlaysEnabled"] = reader.GetValue("Toggle Switches", "Inlays", "off");
 	modSettings["ToggleLoftWhen"] = reader.GetValue("Toggle Switches", "ToggleLoftWhen", "manual");
